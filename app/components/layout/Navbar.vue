@@ -20,11 +20,37 @@ const favoritesStore = useFavoritesStore()
 const notificationStore = useNotificationStore()
 const { isDark, toggleDarkMode } = useDarkMode()
 
-// Fetch notifications on mount if authenticated
+// Initialize auth and fetch data on mount
 onMounted(() => {
+  authStore.initAuth()
+  
   if (authStore.isAuthenticated) {
     notificationStore.fetchNotifications()
+    favoritesStore.fetchFavorites()
   }
+})
+
+// Watch for auth changes to fetch data
+watch(() => authStore.isAuthenticated, async (isAuth) => {
+  // Defer data fetching to avoid conflicts with page renders
+  await nextTick()
+  
+  if (isAuth) {
+    notificationStore.fetchNotifications()
+    favoritesStore.fetchFavorites()
+  } else {
+    favoritesStore.clearFavorites()
+  }
+})
+
+// Get user initials for avatar
+const userInitials = computed(() => {
+  if (!authStore.user?.name) return 'U'
+  const names = authStore.user.name.split(' ')
+  if (names.length >= 2) {
+    return (names[0][0] + names[names.length - 1][0]).toUpperCase()
+  }
+  return authStore.user.name.substring(0, 2).toUpperCase()
 })
 
 const mobileMenuOpen = ref(false)
@@ -114,9 +140,19 @@ const closeMobileMenu = () => {
           <!-- User menu (desktop) -->
           <div v-if="authStore.isAuthenticated" class="hidden md:block">
             <Menu as="div" class="relative">
-              <MenuButton class="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none">
-                <UserCircleIcon class="h-8 w-8" />
-                <span class="text-sm font-medium">{{ authStore.user?.name }}</span>
+              <MenuButton class="flex items-center space-x-3 text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 focus:outline-none group">
+                <!-- User Avatar -->
+                <div class="relative">
+                  <div class="h-9 w-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-semibold text-sm shadow-md group-hover:shadow-lg transition-shadow">
+                    {{ userInitials }}
+                  </div>
+                  <div class="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
+                </div>
+                <!-- User Info -->
+                <div class="flex flex-col items-start">
+                  <span class="text-sm font-semibold">{{ authStore.user?.name }}</span>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">{{ authStore.user?.email }}</span>
+                </div>
               </MenuButton>
 
               <transition
@@ -127,17 +163,40 @@ const closeMobileMenu = () => {
                 leave-from-class="transform scale-100 opacity-100"
                 leave-to-class="transform scale-95 opacity-0"
               >
-                <MenuItems class="absolute right-0 mt-2 w-48 origin-top-right rounded-md bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                <MenuItems class="absolute right-0 mt-2 w-64 origin-top-right rounded-lg bg-white dark:bg-gray-800 shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none divide-y divide-gray-100 dark:divide-gray-700">
+                  <!-- User Info Header -->
+                  <div class="px-4 py-3">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ authStore.user?.name }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ authStore.user?.email }}</p>
+                  </div>
+                  
+                  <!-- Menu Items -->
                   <div class="py-1">
                     <MenuItem v-slot="{ active }">
                       <NuxtLink
                         to="/profile"
                         :class="[
                           active ? 'bg-gray-100 dark:bg-gray-700' : '',
-                          'block px-4 py-2 text-sm text-gray-700 dark:text-gray-300'
+                          'flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300'
                         ]"
                       >
-                        Profile
+                        <UserCircleIcon class="h-5 w-5 mr-3 text-gray-400" />
+                        Hồ sơ cá nhân
+                      </NuxtLink>
+                    </MenuItem>
+                    <MenuItem v-slot="{ active }">
+                      <NuxtLink
+                        to="/saved"
+                        :class="[
+                          active ? 'bg-gray-100 dark:bg-gray-700' : '',
+                          'flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300'
+                        ]"
+                      >
+                        <BookmarkIcon class="h-5 w-5 mr-3 text-gray-400" />
+                        Đơn đã lưu
+                        <span v-if="favoritesStore.favoritesCount > 0" class="ml-auto px-2 py-0.5 text-xs bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400 rounded-full">
+                          {{ favoritesStore.favoritesCount }}
+                        </span>
                       </NuxtLink>
                     </MenuItem>
                     <MenuItem v-slot="{ active }">
@@ -145,21 +204,31 @@ const closeMobileMenu = () => {
                         to="/feedback"
                         :class="[
                           active ? 'bg-gray-100 dark:bg-gray-700' : '',
-                          'block px-4 py-2 text-sm text-gray-700 dark:text-gray-300'
+                          'flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300'
                         ]"
                       >
-                        Send Feedback
+                        <svg class="h-5 w-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                        </svg>
+                        Gửi phản hồi
                       </NuxtLink>
                     </MenuItem>
+                  </div>
+                  
+                  <!-- Logout -->
+                  <div class="py-1">
                     <MenuItem v-slot="{ active }">
                       <button
                         @click="handleLogout"
                         :class="[
-                          active ? 'bg-gray-100 dark:bg-gray-700' : '',
-                          'block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300'
+                          active ? 'bg-red-50 dark:bg-red-900/20' : '',
+                          'flex items-center w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400'
                         ]"
                       >
-                        Logout
+                        <svg class="h-5 w-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Đăng xuất
                       </button>
                     </MenuItem>
                   </div>
@@ -168,14 +237,21 @@ const closeMobileMenu = () => {
             </Menu>
           </div>
 
-          <!-- Login button (desktop) -->
-          <NuxtLink
-            v-else
-            to="/login"
-            class="hidden md:block btn-primary"
-          >
-            Login
-          </NuxtLink>
+          <!-- Login/Signup buttons (desktop) -->
+          <div v-else class="hidden md:flex items-center space-x-3">
+            <NuxtLink
+              to="/login"
+              class="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+            >
+              Đăng nhập
+            </NuxtLink>
+            <NuxtLink
+              to="/signup"
+              class="btn-primary text-sm"
+            >
+              Đăng ký
+            </NuxtLink>
+          </div>
 
           <!-- Mobile menu button -->
           <button
@@ -234,37 +310,58 @@ const closeMobileMenu = () => {
         </NuxtLink>
 
         <template v-if="authStore.isAuthenticated">
+          <!-- User Info in Mobile -->
+          <div class="px-3 py-3 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex items-center space-x-3">
+              <div class="h-10 w-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white font-semibold shadow-md">
+                {{ userInitials }}
+              </div>
+              <div class="flex-1">
+                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ authStore.user?.name }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ authStore.user?.email }}</p>
+              </div>
+            </div>
+          </div>
+          
           <NuxtLink
             to="/profile"
             @click="closeMobileMenu"
             class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <UserCircleIcon class="h-5 w-5 inline mr-2" />
-            Profile
+            Hồ sơ cá nhân
           </NuxtLink>
           <NuxtLink
             to="/feedback"
             @click="closeMobileMenu"
             class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
-            Send Feedback
+            Gửi phản hồi
           </NuxtLink>
           <button
             @click="handleLogout"
-            class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            class="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
           >
-            Logout
+            Đăng xuất
           </button>
         </template>
 
-        <NuxtLink
-          v-else
-          to="/login"
-          @click="closeMobileMenu"
-          class="block px-3 py-2 rounded-md text-base font-medium text-primary-600 dark:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-        >
-          Login
-        </NuxtLink>
+        <template v-else>
+          <NuxtLink
+            to="/login"
+            @click="closeMobileMenu"
+            class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            Đăng nhập
+          </NuxtLink>
+          <NuxtLink
+            to="/signup"
+            @click="closeMobileMenu"
+            class="block px-3 py-2 rounded-md text-base font-medium text-primary-600 dark:text-primary-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            Đăng ký
+          </NuxtLink>
+        </template>
       </div>
     </div>
   </nav>

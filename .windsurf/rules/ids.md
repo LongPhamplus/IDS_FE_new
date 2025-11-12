@@ -82,3 +82,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   return { success: true, data: body }
 })
+
+
+***important
+No need to create docs file

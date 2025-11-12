@@ -37,11 +37,16 @@ const handleLogin = async () => {
     })
 
     // Redirect to original page or home
-    const redirect = route.query.redirect as string || '/'
-    navigateTo(redirect)
+    const redirect = route.query.redirect as string || '/profile'
+    
+    // Use nextTick to ensure auth state is updated before navigation
+    await nextTick()
+    
+    // Navigate with replace to avoid back button issues
+    await navigateTo(redirect, { replace: true })
   } catch (err: any) {
-    error.value = err.data?.message || 'Invalid email or password'
-  } finally {
+    // Handle error from backend
+    error.value = err.data?.message || err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.'
     loading.value = false
   }
 }

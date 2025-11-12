@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeftIcon, BookmarkIcon as BookmarkOutline, FlagIcon, ArrowDownTrayIcon, DocumentTextIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon, XMarkIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon } from '@heroicons/vue/24/outline'
+import { ArrowLeftIcon, BookmarkIcon as BookmarkOutline, FlagIcon, ArrowDownTrayIcon, DocumentTextIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon, XMarkIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/vue/24/outline'
 import { BookmarkIcon as BookmarkSolid } from '@heroicons/vue/24/solid'
 import type { Trademark } from '~/types'
 import { useAuthStore } from '~/stores/auth'
@@ -22,10 +22,18 @@ const trademark = ref<any | null>(null)
 const loading = ref(true)
 const error = ref('')
 const saving = ref(false)
-const showProgress = ref(true) // Toggle for progress timeline
+const showProgress = ref(false) 
 const expandedServices = ref<Record<number, boolean>>({})
+const showCertificateSection = ref(false)
 const showImageModal = ref(false)
 const imageZoom = ref(1)
+
+// Modal states
+const showConfirmModal = ref(false)
+const confirmAction = ref<'add' | 'remove'>('add')
+const showLimitModal = ref(false)
+const showSuccessToast = ref(false)
+const toastMessage = ref('')
 
 const isFavorite = computed(() => 
   trademark.value ? favoritesStore.isFavorite(trademark.value.id) : false
@@ -37,6 +45,10 @@ const toggleProgress = () => {
 
 const toggleService = (index: number) => {
   expandedServices.value[index] = !expandedServices.value[index]
+}
+
+const toggleCertificateSection = () => {
+  showCertificateSection.value = !showCertificateSection.value
 }
 
 const openImageModal = () => {
@@ -69,18 +81,53 @@ const toggleFavorite = async () => {
     return
   }
 
+  // Check limit for add action
+  if (!isFavorite.value && favoritesStore.isLimitReached) {
+    showLimitModal.value = true
+    return
+  }
+  
+  confirmAction.value = isFavorite.value ? 'remove' : 'add'
+  showConfirmModal.value = true
+}
+
+const confirmFavoriteAction = async () => {
+  if (!trademark.value) return
+  
   saving.value = true
   try {
-    if (isFavorite.value) {
-      await favoritesStore.removeFavorite(trademark.value.id)
-    } else {
+    if (confirmAction.value === 'add') {
       await favoritesStore.addFavorite(trademark.value)
+      toastMessage.value = 'Đã lưu đơn thành công!'
+    } else {
+      await favoritesStore.removeFavorite(trademark.value.id)
+      toastMessage.value = 'Đã hủy lưu đơn!'
     }
-  } catch (error) {
+    
+    showSuccessToast.value = true
+    setTimeout(() => {
+      showSuccessToast.value = false
+    }, 3000)
+    
+  } catch (error: any) {
     console.error('Failed to toggle favorite:', error)
+    toastMessage.value = error.message || 'Có lỗi xảy ra!'
+    showSuccessToast.value = true
+    setTimeout(() => {
+      showSuccessToast.value = false
+    }, 3000)
   } finally {
     saving.value = false
+    showConfirmModal.value = false
   }
+}
+
+const cancelFavoriteAction = () => {
+  showConfirmModal.value = false
+}
+
+const closeLimitModal = () => {
+  showLimitModal.value = false
 }
 
 const getStatusColor = (status: string) => {
@@ -98,26 +145,22 @@ const getStatusColor = (status: string) => {
 
 const formatDate = (dateString?: string) => {
   if (!dateString) return 'N/A'
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
+  const date = new Date(dateString)
+  const day = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
 }
 
-// Fetch trademark details
 onMounted(async () => {
   const slug = route.params.id as string
   
   try {
     loading.value = true
     
-    // Fetch từ backend API
     const result = await getTrademarkBySlug(slug)
-    
     if (result) {
       trademark.value = result
-      console.log('Trademark data:', result)
     } else {
       error.value = 'Không tìm thấy nhãn hiệu'
     }
@@ -304,6 +347,99 @@ onMounted(async () => {
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Ngày công bố</h3>
             <p class="text-lg text-gray-900 dark:text-gray-100">{{ formatDate(trademark.ngay_cong_bo) }}</p>
           </div>
+
+          <!-- Thêm các field kết thúc bằng cb từ backend -->
+          <div v-if="trademark.ten_nhan_hieu_cb">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Tên nhãn hiệu (cấp bằng)</h3>
+            <p class="text-lg text-gray-900 dark:text-gray-100">{{ trademark.ten_nhan_hieu_cb }}</p>
+          </div>
+
+          <div v-if="trademark.mau_sac_cb">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Màu sắc (cấp bằng)</h3>
+            <p class="text-lg text-gray-900 dark:text-gray-100">{{ trademark.mau_sac_cb }}</p>
+          </div>
+
+          <div v-if="trademark.phan_loai_hinh_cb">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Phân loại hình (cấp bằng)</h3>
+            <p class="text-lg text-gray-900 dark:text-gray-100">{{ trademark.phan_loai_hinh_cb }}</p>
+          </div>
+
+          <div v-if="trademark.yeu_to_loai_tru">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Yếu tố loại trừ</h3>
+            <p class="text-lg text-gray-900 dark:text-gray-100">{{ trademark.yeu_to_loai_tru }}</p>
+          </div>
+
+          <div v-if="trademark.so_don_goc">
+            <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Số đơn gốc</h3>
+            <p class="text-lg text-gray-900 dark:text-gray-100 font-mono">{{ trademark.so_don_goc }}</p>
+          </div>
+        </div>
+
+        <!-- Thông tin đại diện cấp bằng -->
+        <div v-if="trademark.dai_dien_cb" class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Đại diện SHCN (cấp bằng)</h3>
+          <div class="text-gray-900 dark:text-gray-100">
+            <p class="font-semibold">{{ trademark.dai_dien_cb.ten_dai_dien || 'N/A' }}</p>
+            <p v-if="trademark.dai_dien_cb.dia_chi_dai_dien" class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {{ trademark.dai_dien_cb.dia_chi_dai_dien }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Nhóm dịch vụ cấp bằng -->
+        <div v-if="trademark.nhom_dich_vu_cb && trademark.nhom_dich_vu_cb.length > 0" class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <button
+            @click="toggleCertificateSection"
+            class="w-full flex items-center justify-between mb-6 hover:opacity-80 transition-opacity"
+          >
+            <div class="flex items-center gap-3">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Nhóm sản phẩm / Dịch vụ (cấp bằng)
+              </h3>
+              <span class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full text-sm font-semibold">
+                {{ trademark.nhom_dich_vu_cb.length }} nhóm
+              </span>
+            </div>
+            <component
+              :is="showCertificateSection ? ChevronUpIcon : ChevronDownIcon"
+              class="h-6 w-6 text-gray-500 dark:text-gray-400 transition-transform"
+            />
+          </button>
+
+          <transition
+            enter-active-class="transition-all duration-300 ease-out"
+            enter-from-class="opacity-0 max-h-0"
+            enter-to-class="opacity-100 max-h-[2000px]"
+            leave-active-class="transition-all duration-300 ease-in"
+            leave-from-class="opacity-100 max-h-[2000px]"
+            leave-to-class="opacity-0 max-h-0"
+          >
+            <div v-show="showCertificateSection" class="overflow-hidden">
+              <div class="space-y-3">
+            <div
+              v-for="(nhom, idx) in trademark.nhom_dich_vu_cb"
+              :key="idx"
+              class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+            >
+              <div class="flex items-start gap-3">
+                <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                  <span class="text-lg font-bold text-green-600 dark:text-green-400">
+                    {{ nhom.dich_vu_cb?.ma_nhom || 'N/A' }}
+                  </span>
+                </div>
+                <div class="flex-1">
+                  <h4 class="font-semibold text-gray-900 dark:text-gray-100">
+                    Mã nhóm: {{ nhom.dich_vu_cb?.ma_nhom || 'N/A' }}
+                  </h4>
+                  <p v-if="nhom.dich_vu_cb?.mo_ta_dich_vu" class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {{ nhom.dich_vu_cb?.mo_ta_dich_vu }}
+                  </p>
+                </div>
+              </div>
+            </div>
+              </div>
+            </div>
+          </transition>
         </div>
       </div>
 
@@ -630,7 +766,7 @@ onMounted(async () => {
           </p>
           <NuxtLink
             v-if="isFavorite"
-            :to="`/report/${trademark.id}`"
+            :to="`/report/${trademark.so_don}`"
             class="btn-primary flex items-center space-x-2 bg-red-600 hover:bg-red-700"
           >
             <FlagIcon class="h-5 w-5" />
@@ -716,6 +852,169 @@ onMounted(async () => {
                 draggable="false"
               />
             </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Confirmation Modal -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-opacity duration-300"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-opacity duration-300"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="showConfirmModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          @click.self="cancelFavoriteAction"
+        >
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6">
+            <div class="flex items-center gap-4 mb-4">
+              <div 
+                class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center"
+                :class="confirmAction === 'add' 
+                  ? 'bg-primary-100 dark:bg-primary-900/30' 
+                  : 'bg-red-100 dark:bg-red-900/30'"
+              >
+                <ExclamationTriangleIcon 
+                  class="h-6 w-6"
+                  :class="confirmAction === 'add' 
+                    ? 'text-primary-600 dark:text-primary-400' 
+                    : 'text-red-600 dark:text-red-400'"
+                />
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {{ confirmAction === 'add' ? 'Xác nhận lưu đơn' : 'Xác nhận hủy lưu đơn' }}
+                </h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  {{ confirmAction === 'add' ? 'Bạn có chắc muốn lưu đơn này?' : 'Bạn có chắc muốn hủy lưu đơn này khỏi danh sách?' }}
+                </p>
+              </div>
+            </div>
+            
+            <div v-if="trademark" class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-1">
+                {{ trademark.name || trademark.ten_nhan_hieu || 'N/A' }}
+              </h4>
+              <p class="text-sm text-gray-600 dark:text-gray-400">
+                Số đơn: {{ trademark.so_don || trademark.registrationNumber || 'N/A' }}
+              </p>
+            </div>
+
+            <div class="flex gap-3">
+              <button
+                @click="cancelFavoriteAction"
+                class="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                @click="confirmFavoriteAction"
+                :disabled="saving"
+                class="flex-1 px-4 py-2 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                :class="confirmAction === 'add' 
+                  ? 'bg-primary-600 hover:bg-primary-700' 
+                  : 'bg-red-600 hover:bg-red-700'"
+              >
+                {{ saving ? 'Đang xử lý...' : (confirmAction === 'add' ? 'Lưu đơn' : 'Hủy lưu đơn') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Limit Reached Modal -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-opacity duration-300"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-opacity duration-300"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="showLimitModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          @click.self="closeLimitModal"
+        >
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="flex-shrink-0 w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <ExclamationTriangleIcon class="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Đã đạt giới hạn lưu đơn
+                </h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  Bạn đã lưu {{ favoritesStore.favoriteLimit }} đơn (giới hạn tối đa)
+                </p>
+              </div>
+            </div>
+            
+            <div class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+              <p class="text-sm text-amber-800 dark:text-amber-200 mb-3">
+                💡 <strong>Gợi ý:</strong> Hủy lưu một số đơn cũ để có thể lưu đơn mới, hoặc nâng cấp tài khoản để tăng giới hạn.
+              </p>
+              <div class="text-xs text-amber-700 dark:text-amber-300">
+                Đã sử dụng: {{ favoritesStore.favoritesCount }}/{{ favoritesStore.favoriteLimit }}
+              </div>
+            </div>
+
+            <div class="flex gap-3">
+              <button
+                @click="closeLimitModal"
+                class="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors"
+              >
+                Đóng
+              </button>
+              <NuxtLink
+                to="/saved"
+                @click="closeLimitModal"
+                class="flex-1 px-4 py-2 text-white bg-primary-600 hover:bg-primary-700 rounded-lg font-medium transition-colors text-center"
+              >
+                Quản lý đơn đã lưu
+              </NuxtLink>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Success Toast -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-all duration-300 ease-out"
+        enter-from-class="opacity-0 translate-y-2"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition-all duration-300 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-2"
+      >
+        <div
+          v-if="showSuccessToast"
+          class="fixed top-4 right-4 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm"
+        >
+          <div class="flex items-center gap-3">
+            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <CheckCircleIcon class="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
+            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {{ toastMessage }}
+            </p>
+            <button
+              @click="showSuccessToast = false"
+              class="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <XMarkIcon class="h-4 w-4" />
+            </button>
           </div>
         </div>
       </Transition>

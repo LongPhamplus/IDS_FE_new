@@ -56,7 +56,6 @@ export const useApi = () => {
         }
       }
 
-      console.log('Fetching from:', `${config.public.apiBase}/api/trademark?${queryParams.toString()}`)
       
       const response = await $fetch<Trademark[]>(
         `/api/trademark?${queryParams.toString()}`,
@@ -66,11 +65,9 @@ export const useApi = () => {
         }
       )
 
-      console.log('Backend response:', response)
 
       // Kiểm tra response có phải là array không
       if (!Array.isArray(response)) {
-        console.error('Backend response is not an array:', response)
         return {
           data: [],
           total: 0,
@@ -132,7 +129,8 @@ export const useApi = () => {
           class: displayClass,
           owner: item.chu_don?.ten_chu_don || '',
           status: item.trang_thai || '',
-          registrationNumber: item.so_don || '',
+          so_don: item.so_don || '',
+          registrationNumber: item.so_bang || '',
           registrationDate: item.ngay_nop_don || '',
           expiryDate: item.ngay_het_han || '',
           description: item.mo_ta || '',
@@ -151,9 +149,6 @@ export const useApi = () => {
       const paginatedData = transformedData.slice(startIndex, endIndex)
       const total = transformedData.length
       const totalPages = Math.ceil(total / limit)
-
-      console.log(`Pagination: ${paginatedData.length} items (page ${page}/${totalPages})`)
-      console.log('Transformed data sample:', paginatedData[0])
 
       return {
         data: paginatedData,
@@ -179,14 +174,12 @@ export const useApi = () => {
    */
   const getTrademarkBySlug = async (slug: string): Promise<any> => {
     try {
-      console.log('Fetching trademark:', `${config.public.apiBase}/api/trademark/${slug}`)
       
       const response = await $fetch<any>(`/api/trademark/${slug}`, {
         baseURL: config.public.apiBase,
         credentials: 'include'
       })
 
-      console.log('Trademark detail response:', response)
 
       // Transform backend data to frontend format
       if (response) {
@@ -241,7 +234,8 @@ export const useApi = () => {
           class: displayClass,
           owner: response.chu_don?.ten_chu_don || '',
           status: response.trang_thai || '',
-          registrationNumber: response.so_don || '',
+          so_don: response.so_don || '',
+          registrationNumber: response.so_bang || '',
           registrationDate: response.ngay_nop_don || '',
           expiryDate: response.ngay_het_han || '',
           description: response.mo_ta || '',

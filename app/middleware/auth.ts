@@ -1,16 +1,16 @@
 export default defineNuxtRouteMiddleware((to, from) => {
   const authStore = useAuthStore()
 
-  // Initialize auth if not already done
-  // if (!authStore.token && process.client) {
-  //   authStore.initAuth()
-  // }
+  // Initialize auth if not already done (client-side only)
+  if (process.client && !authStore.user) {
+    authStore.initAuth()
+  }
 
-  // If not authenticated, redirect to login
-  // if (!authStore.isAuthenticated) {
-  //   return navigateTo({
-  //     path: '/login',
-  //     query: { redirect: to.fullPath }
-  //   })
-  // }
+  // If not authenticated, redirect to login with return URL
+  if (!authStore.isAuthenticated) {
+    return navigateTo({
+      path: '/login',
+      query: { redirect: to.fullPath }
+    })
+  }
 })

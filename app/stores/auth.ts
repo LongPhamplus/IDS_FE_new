@@ -10,7 +10,8 @@ export const useAuthStore = defineStore('auth', {
   }),
 
   getters: {
-    isAuthenticated: (state) => !!state.token && !!state.user,
+    // Check if user exists (token is in HTTP-only cookie, not accessible from JS)
+    isAuthenticated: (state) => !!state.user,
     currentUser: (state) => state.user
   },
 
@@ -33,6 +34,7 @@ export const useAuthStore = defineStore('auth', {
           }
 
           this.user = demoResponse.user
+          this.token = demoResponse.token
 
           // Store user in localStorage (no token needed with cookies)
           if (process.client) {
@@ -44,19 +46,15 @@ export const useAuthStore = defineStore('auth', {
 
         // Real API call - backend will set cookie
         const config = useRuntimeConfig()
-        const response = await $fetch<AuthResponse>('/api/login', {
+        const response = await $fetch<{ message: string }>('/fe/login', {
           baseURL: config.public.apiBase,
           method: 'POST',
           credentials: 'include', // Include cookies
           body: credentials
         })
 
-        this.user = response.user
-
-        // Store user in localStorage (token is in cookie)
-        if (process.client) {
-          localStorage.setItem('user', JSON.stringify(response.user))
-        }
+        // After successful login, fetch user profile
+        await this.fetchUser()
 
         return response
       } catch (error: any) {
@@ -73,19 +71,12 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const config = useRuntimeConfig()
-        const response = await $fetch<AuthResponse>('/api/register', {
+        const response = await $fetch<{ message: string }>('/fe/register', {
           baseURL: config.public.apiBase,
           method: 'POST',
           credentials: 'include', // Include cookies
           body: credentials
         })
-
-        this.user = response.user
-
-        // Store user in localStorage (token is in cookie)
-        if (process.client) {
-          localStorage.setItem('user', JSON.stringify(response.user))
-        }
 
         return response
       } catch (error: any) {
@@ -99,10 +90,18 @@ export const useAuthStore = defineStore('auth', {
     async fetchUser() {
       try {
         const config = useRuntimeConfig()
-        const user = await $fetch<User>('/api/user', {
+        const response = await $fetch<{ user: any }>('/fe/userPage', {
           baseURL: config.public.apiBase,
           credentials: 'include' // Include cookies
         })
+
+        // Extract user from JWT payload
+        const user: User = {
+          id: response.user.sub || response.user.userId,
+          email: response.user.email,
+          name: response.user.name || response.user.email.split('@')[0],
+          createdAt: response.user.iat ? new Date(response.user.iat * 1000).toISOString() : new Date().toISOString()
+        }
 
         this.user = user
         
@@ -127,9 +126,9 @@ export const useAuthStore = defineStore('auth', {
       // Call logout endpoint to clear cookie
       try {
         const config = useRuntimeConfig()
-        await $fetch('/api/logout', {
+        await $fetch('/fe/logout', {
           baseURL: config.public.apiBase,
-          method: 'POST',
+          method: 'GET',
           credentials: 'include'
         })
       } catch (error) {

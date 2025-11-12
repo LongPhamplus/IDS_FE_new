@@ -12,7 +12,7 @@ export interface TrademarkProgress {
 }
 
 export interface Trademark {
-  id: string
+  id: string | number
   name: string
   class: string // Deprecated: Sử dụng classes thay thế
   classes?: TrademarkClass[] // Danh sách các lớp dịch vụ
@@ -25,6 +25,19 @@ export interface Trademark {
   imageUrl?: string // URL hình ảnh nhãn hiệu
   relatedTrademarks?: Trademark[]
   progress?: TrademarkProgress[] // Tiến trình xử lý đơn
+  so_don?: string // Số đơn từ backend
+  
+  // Backend raw fields (Vietnamese column names)
+  ten_nhan_hieu?: string
+  loai_don?: string
+  so_bang?: string
+  ngay_cap?: string
+  trang_thai?: string
+  ngay_het_han?: string
+  ngay_nop_don?: string
+  so_cong_bo?: string
+  ngay_cong_bo?: string
+  chu_don_id?: number
 }
 
 export interface User {
