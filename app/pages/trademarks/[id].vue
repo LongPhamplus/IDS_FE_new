@@ -159,6 +159,7 @@ onMounted(async () => {
     loading.value = true
     
     const result = await getTrademarkBySlug(slug)
+    console.log(result)
     if (result) {
       trademark.value = result
     } else {
@@ -424,15 +425,15 @@ onMounted(async () => {
               <div class="flex items-start gap-3">
                 <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                   <span class="text-lg font-bold text-green-600 dark:text-green-400">
-                    {{ nhom.dich_vu_cb?.ma_nhom || 'N/A' }}
+                    {{ nhom.ma_nhom || 'N/A' }}
                   </span>
                 </div>
                 <div class="flex-1">
                   <h4 class="font-semibold text-gray-900 dark:text-gray-100">
-                    Mã nhóm: {{ nhom.dich_vu_cb?.ma_nhom || 'N/A' }}
+                    Mã nhóm: {{ nhom.ma_nhom || 'N/A' }}
                   </h4>
-                  <p v-if="nhom.dich_vu_cb?.mo_ta_dich_vu" class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {{ nhom.dich_vu_cb?.mo_ta_dich_vu }}
+                  <p v-if="nhom?.mo_ta_dich_vu" class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {{ nhom?.mo_ta_dich_vu }}
                   </p>
                 </div>
               </div>
@@ -528,21 +529,21 @@ onMounted(async () => {
             >
               <div class="flex-shrink-0 w-16 h-16 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
                 <span class="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                  {{ nhom.dich_vu?.ma_nhom || nhom.nhom_sp || 'N/A' }}
+                  {{ nhom?.ma_nhom || 'N/A' }}
                 </span>
               </div>
               <div class="flex-1">
                 <div class="flex items-center justify-between">
                   <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Mã nhóm: {{ nhom.dich_vu?.ma_nhom || nhom.nhom_sp || 'N/A' }}
+                    Mã nhóm: {{ nhom?.ma_nhom || 'N/A' }}
                   </h3>
                   <component
                     :is="expandedServices[idx] ? ChevronUpIcon : ChevronDownIcon"
                     class="h-6 w-6 text-gray-500 dark:text-gray-400 transition-transform flex-shrink-0"
                   />
                 </div>
-                <p v-if="!expandedServices[idx] && nhom.dich_vu?.mo_ta_dich_vu" class="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                  {{ nhom.dich_vu.mo_ta_dich_vu }}
+                <p v-if="!expandedServices[idx] && nhom?.mo_ta_dich_vu" class="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                  {{ nhom?.mo_ta_dich_vu }}
                 </p>
               </div>
             </button>
@@ -556,10 +557,10 @@ onMounted(async () => {
               leave-to-class="opacity-0 max-h-0"
             >
               <div v-show="expandedServices[idx]" class="px-5 pb-5 overflow-hidden">
-                <div v-if="nhom.dich_vu?.mo_ta_dich_vu" class="pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div v-if="nhom?.mo_ta_dich_vu" class="pt-2 border-t border-gray-200 dark:border-gray-700">
                   <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mô tả dịch vụ:</p>
                   <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed pl-4 border-l-2 border-primary-300 dark:border-primary-700">
-                    {{ nhom.dich_vu.mo_ta_dich_vu }}
+                    {{ nhom?.mo_ta_dich_vu }}
                   </p>
                 </div>
               </div>
