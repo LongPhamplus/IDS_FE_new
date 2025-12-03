@@ -14,7 +14,7 @@ const props = defineProps<Props>()
 const authStore = useAuthStore()
 const favoritesStore = useFavoritesStore()
 
-const isFavorite = (id: string) => favoritesStore.isFavorite(id)
+const isFavorite = (id: any) => favoritesStore.isFavorite(id)
 const saving = ref<Record<string, boolean>>({})
 
 const toggleFavorite = async (trademark: Trademark) => {
@@ -39,15 +39,15 @@ const toggleFavorite = async (trademark: Trademark) => {
 
 const getStatusColor = (status: string) => {
   const colors: Record<string, string> = {
-    granted: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    examining: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-    pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-    expired: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-    cancelled: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
-    rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+    'cấp bằng': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+    'đang giải quyết': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+    'từ chối': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+    'hủy': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+    'hết hạn': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+    'rút đơn': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
   }
-  return colors[status.toLowerCase()] || colors.pending
+  if (!status) return colors.pending
+  return colors[status.toLowerCase()] || colors['đang giải quyết']
 }
 </script>
 
@@ -58,25 +58,25 @@ const getStatusColor = (status: string) => {
         <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <tr>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-              Image
+              Nhãn hiệu
             </th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-              Name
+              Tên
             </th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-              Owner
+              Chủ đơn
             </th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
               Mã nhóm
             </th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-              Status
+              Trạng thái
             </th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-              Reg. Number
+              Số đơn
             </th>
             <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-              Actions
+              Hành động
             </th>
           </tr>
         </thead>
@@ -88,7 +88,7 @@ const getStatusColor = (status: string) => {
           >
             <!-- Image -->
             <td class="px-6 py-4">
-              <NuxtLink :to="`/trademarks/${trademark.registrationNumber || trademark.id}`">
+              <NuxtLink :to="`/trademarks/${trademark.so_don}`">
                 <div class="w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
                   <img 
                     v-if="trademark.imageUrl" 
@@ -107,7 +107,7 @@ const getStatusColor = (status: string) => {
             <!-- Name -->
             <td class="px-6 py-4">
               <NuxtLink 
-                :to="`/trademarks/${trademark.registrationNumber || trademark.id}`"
+                :to="`/trademarks/${trademark.so_don}`"
                 class="font-semibold text-gray-900 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
               >
                 {{ trademark.name }}
@@ -137,7 +137,7 @@ const getStatusColor = (status: string) => {
             <!-- Registration Number -->
             <td class="px-6 py-4">
               <span class="text-sm font-mono text-gray-700 dark:text-gray-300">
-                {{ trademark.registrationNumber || 'N/A' }}
+                {{ trademark.so_don || 'N/A' }}
               </span>
             </td>
 
@@ -154,7 +154,7 @@ const getStatusColor = (status: string) => {
                   <BookmarkOutline v-else class="h-5 w-5" />
                 </button>
                 <NuxtLink
-                  :to="`/trademarks/${trademark.registrationNumber || trademark.id}`"
+                  :to="`/trademarks/${trademark.so_don}`"
                   class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium"
                 >
                   View →

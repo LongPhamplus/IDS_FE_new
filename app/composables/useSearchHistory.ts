@@ -3,6 +3,7 @@ export interface SearchHistoryItem {
   timestamp: number
   type?: string
   filters?: {
+    so_don?: string
     owner?: string
     status?: string
     class?: string
@@ -35,13 +36,13 @@ export const useSearchHistory = () => {
   // Save search to history
   const addToHistory = (item: Omit<SearchHistoryItem, 'timestamp'>) => {
     if (typeof window === 'undefined' || !item.query?.trim()) return
-
+    console.log(item)
     try {
       const history = getHistory()
-      
+
       // Remove duplicate if exists (same query)
       const filteredHistory = history.filter(h => h.query !== item.query)
-      
+
       // Add new item at the beginning
       const newHistory = [
         {
@@ -95,10 +96,10 @@ export const useSearchHistory = () => {
     } else if (diffInHours < 48) {
       return 'Hôm qua'
     } else {
-      return date.toLocaleDateString('vi-VN', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric' 
+      return date.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
       })
     }
   }

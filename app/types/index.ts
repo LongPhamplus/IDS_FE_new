@@ -26,7 +26,7 @@ export interface Trademark {
   relatedTrademarks?: Trademark[]
   progress?: TrademarkProgress[] // Tiến trình xử lý đơn
   so_don?: string // Số đơn từ backend
-  
+
   // Backend raw fields (Vietnamese column names)
   ten_nhan_hieu?: string
   loai_don?: string
@@ -66,6 +66,7 @@ export interface Feedback {
 
 export interface SearchParams {
   q?: string // Số đơn hoặc tên nhãn hiệu
+  so_don?: string // Số đơn
   class?: string
   owner?: string // Chủ đơn
   status?: string // Trạng thái

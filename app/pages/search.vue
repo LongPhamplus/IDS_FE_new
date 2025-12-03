@@ -10,6 +10,18 @@ const { getHistory, addToHistory, clearHistory, removeFromHistory, formatTimesta
 const authStore = useAuthStore()
 const favoritesStore = useFavoritesStore()
 
+// Status mapping for Vietnamese labels
+const getStatusLabel = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    'granted': 'Cấp bằng',
+    'examining': 'Đang kiểm tra',
+    'cancelled': 'Hủy',
+    'expired': 'Hết hạn',
+    'rejected': 'Từ chối'
+  }
+  return statusMap[status] || status
+}
+
 // View mode: 'card' or 'table'
 const viewMode = ref<'card' | 'table'>('card')
 
@@ -36,6 +48,7 @@ const itemsPerPageOptions = [6, 12, 24, 48, 96]
 // Initialize search params from URL
 const searchParams = ref<SearchParams>({
   q: (route.query.q as string) || '',
+  so_don: (route.query.so_don as string) || '',
   class: (route.query.class as string) || '',
   owner: (route.query.owner as string) || '',
   status: (route.query.status as string) || '',
@@ -90,35 +103,35 @@ const performSearch = async () => {
     totalPages.value = response.totalPages || 0
     total.value = response.total || 0
 
-    // Save to search history if there's a query or any filter
+    // Save to search history only if there are actual search criteria
+    // This allows empty display without affecting search logic
     const hasSearchCriteria = searchParams.value.q ||
+      searchParams.value.so_don ||
       searchParams.value.owner ||
       searchParams.value.status ||
       searchParams.value.class
 
     if (hasSearchCriteria) {
-      const displayQuery = searchParams.value.q ||
-        searchParams.value.owner ||
-        searchParams.value.status ||
-        searchParams.value.class ||
-        'Tìm kiếm nâng cao'
+      // Use advanced search label if no query but has filters
+      const displayQuery = searchParams.value.q || 'Tìm kiếm nâng cao'
 
       addToHistory({
         query: displayQuery,
         type: searchParams.value.type,
         filters: {
+          so_don: searchParams.value.so_don,
           owner: searchParams.value.owner,
           status: searchParams.value.status,
           class: searchParams.value.class
         }
       })
-      
+
       searchHistory.value = getHistory()
     }
   } catch (err: any) {
     error.value = err.data?.message || err.message || 'Tìm kiếm thất bại. Vui lòng thử lại.'
     console.error('Search error:', err)
-    
+
     trademarks.value = []
     totalPages.value = 0
     total.value = 0
@@ -133,6 +146,7 @@ const handleSearch = async () => {
   // Update URL first
   const query: Record<string, string> = {}
   if (searchParams.value.q) query.q = searchParams.value.q
+  if (searchParams.value.so_don) query.so_don = searchParams.value.so_don
   if (searchParams.value.class) query.class = searchParams.value.class
   if (searchParams.value.owner) query.owner = searchParams.value.owner
   if (searchParams.value.status) query.status = searchParams.value.status
@@ -157,6 +171,7 @@ const goToPage = async (page: number) => {
   // Update URL
   const query: Record<string, string> = {}
   if (searchParams.value.q) query.q = searchParams.value.q
+  if (searchParams.value.so_don) query.so_don = searchParams.value.so_don
   if (searchParams.value.class) query.class = searchParams.value.class
   if (searchParams.value.owner) query.owner = searchParams.value.owner
   if (searchParams.value.status) query.status = searchParams.value.status
@@ -178,7 +193,7 @@ const goToPage = async (page: number) => {
 
 // Perform initial search on mount
 onMounted(() => {
-  if (searchParams.value.q || searchParams.value.class || searchParams.value.owner || searchParams.value.status || searchParams.value.type) {
+  if (searchParams.value.q || searchParams.value.so_don || searchParams.value.class || searchParams.value.owner || searchParams.value.status || searchParams.value.type) {
     performSearch()
   }
 })
@@ -192,19 +207,19 @@ const handleFavoriteAction = (trademark: Trademark, action: 'add' | 'remove') =>
 
   selectedTrademark.value = trademark
   confirmAction.value = action
-  
+
   // Check limit for add action
   if (action === 'add' && favoritesStore.isLimitReached) {
     showLimitModal.value = true
     return
   }
-  
+
   showConfirmModal.value = true
 }
 
 const confirmFavoriteAction = async () => {
   if (!selectedTrademark.value) return
-  
+
   try {
     if (confirmAction.value === 'add') {
       await favoritesStore.addFavorite(selectedTrademark.value)
@@ -213,12 +228,12 @@ const confirmFavoriteAction = async () => {
       await favoritesStore.removeFavorite(selectedTrademark.value.id)
       toastMessage.value = 'Đã hủy lưu đơn!'
     }
-    
+
     showSuccessToast.value = true
     setTimeout(() => {
       showSuccessToast.value = false
     }, 3000)
-    
+
   } catch (error: any) {
     console.error('Failed to toggle favorite:', error)
     toastMessage.value = error.message || 'Có lỗi xảy ra!'
@@ -246,6 +261,7 @@ const closeLimitModal = () => {
 watch(() => route.query, () => {
   searchParams.value = {
     q: (route.query.q as string) || '',
+    so_don: (route.query.so_don as string) || '',
     class: (route.query.class as string) || '',
     owner: (route.query.owner as string) || '',
     status: (route.query.status as string) || '',
@@ -290,6 +306,7 @@ provide('handleFavoriteAction', handleFavoriteAction)
             class="group inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-full text-sm transition-colors cursor-pointer">
             <div class="flex items-center gap-1.5 truncate max-w-[300px]" @click="() => {
               searchParams.q = item.query === 'Tìm kiếm nâng cao' ? '' : item.query
+              if (item.filters?.so_don) searchParams.so_don = item.filters.so_don
               if (item.filters?.owner) searchParams.owner = item.filters.owner
               if (item.filters?.status) searchParams.status = item.filters.status
               if (item.filters?.class) searchParams.class = item.filters.class
@@ -299,15 +316,18 @@ provide('handleFavoriteAction', handleFavoriteAction)
                 class="text-gray-700 dark:text-gray-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 truncate">
                 {{ item.query }}
               </span>
-              <span v-if="item.filters?.owner || item.filters?.status || item.filters?.class"
+              <span v-if="item.filters?.so_don || item.filters?.owner || item.filters?.status || item.filters?.class"
                 class="text-xs text-gray-400">
                 •
+              </span>
+              <span v-if="item.filters?.so_don" class="text-xs text-orange-600 dark:text-orange-400 truncate">
+                {{ item.filters.so_don }}
               </span>
               <span v-if="item.filters?.owner" class="text-xs text-blue-600 dark:text-blue-400 truncate">
                 {{ item.filters.owner }}
               </span>
               <span v-if="item.filters?.status" class="text-xs text-green-600 dark:text-green-400 truncate">
-                {{ item.filters.status }}
+                {{ getStatusLabel(item.filters.status) }}
               </span>
               <span v-if="item.filters?.class" class="text-xs text-purple-600 dark:text-purple-400">
                 Lớp {{ item.filters.class }}
@@ -332,9 +352,14 @@ provide('handleFavoriteAction', handleFavoriteAction)
     <div v-if="!loading && trademarks.length > 0"
       class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div class="flex items-center gap-4">
-        <p class="text-gray-600 dark:text-gray-400">
-          Found <span class="font-semibold text-gray-900 dark:text-gray-100">{{ total }}</span> results
-        </p>
+        <div>
+          <p class="text-gray-600 dark:text-gray-400">
+            Tìm thấy <span class="font-semibold text-gray-900 dark:text-gray-100">{{ total }}</span> kết quả
+          </p>
+          <p v-if="total >= 100" class="text-sm text-amber-600 dark:text-amber-400 mt-1">
+            ⚠️ Có nhiều hơn 100 kết quả, vui lòng điền thêm thông tin chi tiết để thu hẹp kết quả
+          </p>
+        </div>
 
         <!-- Items per page selector -->
         <div class="flex items-center gap-2">
@@ -361,7 +386,7 @@ provide('handleFavoriteAction', handleFavoriteAction)
             : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
         ]">
           <Squares2X2Icon class="h-5 w-5" />
-          <span>Card</span>
+          <span>Thẻ</span>
         </button>
         <button @click="viewMode = 'table'" :class="[
           'flex items-center space-x-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200',
@@ -370,7 +395,7 @@ provide('handleFavoriteAction', handleFavoriteAction)
             : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
         ]">
           <TableCellsIcon class="h-5 w-5" />
-          <span>Table</span>
+          <span>Bảng</span>
         </button>
       </div>
     </div>
@@ -381,9 +406,11 @@ provide('handleFavoriteAction', handleFavoriteAction)
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="trademarks.length === 0 && (searchParams.q || searchParams.owner || searchParams.status || searchParams.type)" key="empty-state">
-      <UiEmptyState
-        title="Không tìm thấy kết quả" description="Thử điều chỉnh tiêu chí tìm kiếm hoặc bộ lọc của bạn" icon="search">
+    <div
+      v-else-if="trademarks.length === 0 && (searchParams.q || searchParams.owner || searchParams.status || searchParams.type)"
+      key="empty-state">
+      <UiEmptyState title="Không tìm thấy kết quả" description="Thử điều chỉnh tiêu chí tìm kiếm hoặc bộ lọc của bạn"
+        icon="search">
         <template #action>
           <button @click="searchParams = { page: 1, limit: 12 }; handleSearch()" class="btn-primary">
             Xóa bộ lọc
@@ -394,12 +421,13 @@ provide('handleFavoriteAction', handleFavoriteAction)
 
     <!-- Initial state -->
     <div v-else-if="trademarks.length === 0" key="initial-state">
-      <UiEmptyState title="Bắt đầu tìm kiếm"
-        description="Nhập số đơn, tên nhãn hiệu hoặc sử dụng tìm kiếm nâng cao" icon="search" />
+      <UiEmptyState title="Bắt đầu tìm kiếm" description="Nhập số đơn, tên nhãn hiệu hoặc sử dụng tìm kiếm nâng cao"
+        icon="search" />
     </div>
 
     <!-- Results - Card View -->
-    <div v-else-if="viewMode === 'card'" key="card-view" class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 animate-fade-in">
+    <div v-else-if="viewMode === 'card'" key="card-view"
+      class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 animate-fade-in">
       <TrademarkCard v-for="trademark in trademarks" :key="trademark.id" :trademark="trademark" />
     </div>
 
@@ -434,44 +462,33 @@ provide('handleFavoriteAction', handleFavoriteAction)
 
     <!-- Confirmation Modal -->
     <Teleport to="body">
-      <Transition
-        enter-active-class="transition-opacity duration-300"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition-opacity duration-300"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="showConfirmModal"
+      <Transition enter-active-class="transition-opacity duration-300" enter-from-class="opacity-0"
+        enter-to-class="opacity-100" leave-active-class="transition-opacity duration-300" leave-from-class="opacity-100"
+        leave-to-class="opacity-0">
+        <div v-if="showConfirmModal"
           class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          @click.self="cancelFavoriteAction"
-        >
+          @click.self="cancelFavoriteAction">
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6">
             <div class="flex items-center gap-4 mb-4">
-              <div 
-                class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center"
-                :class="confirmAction === 'add' 
-                  ? 'bg-primary-100 dark:bg-primary-900/30' 
-                  : 'bg-red-100 dark:bg-red-900/30'"
-              >
-                <ExclamationTriangleIcon 
-                  class="h-6 w-6"
-                  :class="confirmAction === 'add' 
-                    ? 'text-primary-600 dark:text-primary-400' 
-                    : 'text-red-600 dark:text-red-400'"
-                />
+              <div class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center" :class="confirmAction === 'add'
+                ? 'bg-primary-100 dark:bg-primary-900/30'
+                : 'bg-red-100 dark:bg-red-900/30'">
+                <ExclamationTriangleIcon class="h-6 w-6" :class="confirmAction === 'add'
+                  ? 'text-primary-600 dark:text-primary-400'
+                  : 'text-red-600 dark:text-red-400'" />
               </div>
               <div>
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {{ confirmAction === 'add' ? 'Xác nhận lưu đơn' : 'Xác nhận hủy lưu đơn' }}
                 </h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                  {{ confirmAction === 'add' ? 'Bạn có chắc muốn lưu đơn này?' : 'Bạn có chắc muốn hủy lưu đơn này khỏi danh sách?' }}
+                  {{ confirmAction === 'add' ?
+                    'Bạn có chắc muốn lưu đơn này?' :
+                    'Bạn có chắc muốn hủy lưu đơn này khỏi danh sách ? ' }}
                 </p>
               </div>
             </div>
-            
+
             <div v-if="selectedTrademark" class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-1">
                 {{ selectedTrademark.name || 'N/A' }}
@@ -482,19 +499,14 @@ provide('handleFavoriteAction', handleFavoriteAction)
             </div>
 
             <div class="flex gap-3">
-              <button
-                @click="cancelFavoriteAction"
-                class="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors"
-              >
+              <button @click="cancelFavoriteAction"
+                class="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors">
                 Hủy
               </button>
-              <button
-                @click="confirmFavoriteAction"
-                class="flex-1 px-4 py-2 text-white rounded-lg font-medium transition-colors"
-                :class="confirmAction === 'add' 
-                  ? 'bg-primary-600 hover:bg-primary-700' 
-                  : 'bg-red-600 hover:bg-red-700'"
-              >
+              <button @click="confirmFavoriteAction"
+                class="flex-1 px-4 py-2 text-white rounded-lg font-medium transition-colors" :class="confirmAction === 'add'
+                  ? 'bg-primary-600 hover:bg-primary-700'
+                  : 'bg-red-600 hover:bg-red-700'">
                 {{ confirmAction === 'add' ? 'Lưu đơn' : 'Hủy lưu đơn' }}
               </button>
             </div>
@@ -505,22 +517,16 @@ provide('handleFavoriteAction', handleFavoriteAction)
 
     <!-- Limit Reached Modal -->
     <Teleport to="body">
-      <Transition
-        enter-active-class="transition-opacity duration-300"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition-opacity duration-300"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="showLimitModal"
+      <Transition enter-active-class="transition-opacity duration-300" enter-from-class="opacity-0"
+        enter-to-class="opacity-100" leave-active-class="transition-opacity duration-300" leave-from-class="opacity-100"
+        leave-to-class="opacity-0">
+        <div v-if="showLimitModal"
           class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          @click.self="closeLimitModal"
-        >
+          @click.self="closeLimitModal">
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6">
             <div class="flex items-center gap-4 mb-4">
-              <div class="flex-shrink-0 w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+              <div
+                class="flex-shrink-0 w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                 <ExclamationTriangleIcon class="h-6 w-6 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
@@ -532,10 +538,13 @@ provide('handleFavoriteAction', handleFavoriteAction)
                 </p>
               </div>
             </div>
-            
-            <div class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+
+            <div
+              class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
               <p class="text-sm text-amber-800 dark:text-amber-200 mb-3">
-                💡 <strong>Gợi ý:</strong> Hủy lưu một số đơn cũ để có thể lưu đơn mới, hoặc nâng cấp tài khoản để tăng giới hạn.
+                💡 <strong>Gợi ý:</strong> Hủy lưu một số đơn cũ để có thể lưu đơn mới, hoặc nâng cấp tài khoản để tăng
+                giới
+                hạn.
               </p>
               <div class="text-xs text-amber-700 dark:text-amber-300">
                 Đã sử dụng: {{ favoritesStore.favoritesCount }}/{{ favoritesStore.favoriteLimit }}
@@ -543,17 +552,12 @@ provide('handleFavoriteAction', handleFavoriteAction)
             </div>
 
             <div class="flex gap-3">
-              <button
-                @click="closeLimitModal"
-                class="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors"
-              >
+              <button @click="closeLimitModal"
+                class="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors">
                 Đóng
               </button>
-              <NuxtLink
-                to="/saved"
-                @click="closeLimitModal"
-                class="flex-1 px-4 py-2 text-white bg-primary-600 hover:bg-primary-700 rounded-lg font-medium transition-colors text-center"
-              >
+              <NuxtLink to="/saved" @click="closeLimitModal"
+                class="flex-1 px-4 py-2 text-white bg-primary-600 hover:bg-primary-700 rounded-lg font-medium transition-colors text-center">
                 Quản lý đơn đã lưu
               </NuxtLink>
             </div>
@@ -564,29 +568,21 @@ provide('handleFavoriteAction', handleFavoriteAction)
 
     <!-- Success Toast -->
     <Teleport to="body">
-      <Transition
-        enter-active-class="transition-all duration-300 ease-out"
-        enter-from-class="opacity-0 translate-y-2"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition-all duration-300 ease-in"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 translate-y-2"
-      >
-        <div
-          v-if="showSuccessToast"
-          class="fixed top-4 right-4 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm"
-        >
+      <Transition enter-active-class="transition-all duration-300 ease-out" enter-from-class="opacity-0 translate-y-2"
+        enter-to-class="opacity-100 translate-y-0" leave-active-class="transition-all duration-300 ease-in"
+        leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-2">
+        <div v-if="showSuccessToast"
+          class="fixed top-4 right-4 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm">
           <div class="flex items-center gap-3">
-            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+            <div
+              class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
               <CheckCircleIcon class="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
               {{ toastMessage }}
             </p>
-            <button
-              @click="showSuccessToast = false"
-              class="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
+            <button @click="showSuccessToast = false"
+              class="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
               <XMarkIcon class="h-4 w-4" />
             </button>
           </div>

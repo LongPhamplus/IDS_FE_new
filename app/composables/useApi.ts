@@ -24,7 +24,9 @@ export const useApi = () => {
       if (params.class) {
         queryParams.append('dich_vu_nhom_sp', params.class) // Dịch vụ/nhóm sản phẩm
       }
-      
+      if (params.so_don) {
+        queryParams.append('so_don', params.so_don) // Số đơn
+      }
       // Map status to backend format
       if (params.status) {
         switch (params.status.toLowerCase()) {

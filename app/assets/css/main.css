@@ -26,7 +26,7 @@
   }
   
   .card {
-    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl border border-gray-100 dark:border-gray-700/50 transition-all duration-300 backdrop-blur-sm;
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700/50 transition-all duration-300 backdrop-blur-sm;
   }
   
   .gradient-text {
