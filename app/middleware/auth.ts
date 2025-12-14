@@ -1,16 +1,11 @@
-export default defineNuxtRouteMiddleware((to, from) => {
-    const authStore = useAuthStore()
-
-    // Initialize auth if not already done (client-side only)
-    if (process.client && !authStore.user) {
-        authStore.initAuth()
-    }
-
-    // If not authenticated, redirect to login with return URL
-    if (!authStore.isAuthenticated) {
-        return navigateTo({
-            path: '/login',
-            query: { redirect: to.fullPath }
-        })
+export default defineNuxtRouteMiddleware(async (to, from) => {
+    const auth = useAuthStore()
+    // Nếu Pinia chưa có user → fetch (SSR hoặc client đều được)
+    if (!auth.user) {
+        try {
+            await auth.fetchUser()
+        } catch (e) {
+            return navigateTo('/login')
+        }
     }
 })

@@ -34,7 +34,7 @@ onMounted(() => {
 watch(() => authStore.isAuthenticated, async (isAuth) => {
   // Defer data fetching to avoid conflicts with page renders
   await nextTick()
-  
+  console.log(isAuth)
   if (isAuth) {
     notificationStore.fetchNotifications()
     favoritesStore.fetchFavorites()

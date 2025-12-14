@@ -75,7 +75,7 @@ const subjectOptions = [
       class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg mb-6 flex items-center"
     >
       <CheckCircleIcon class="h-5 w-5 mr-2" />
-      Thank you for your feedback! We'll review it shortly.
+      Cảm ơn phản hồi của bạn! Chúng tôi sẽ xem xét sớm nhất có thể.
     </div>
 
     <!-- Error message -->
@@ -92,7 +92,7 @@ const subjectOptions = [
         <!-- Subject -->
         <div>
           <label for="subject" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Subject <span class="text-red-500">*</span>
+            Chủ đề <span class="text-red-500">*</span>
           </label>
           <select
             id="subject"
@@ -100,7 +100,7 @@ const subjectOptions = [
             required
             class="input-field"
           >
-            <option value="" disabled>Select a subject</option>
+            <option value="" disabled>Chọn chủ đề</option>
             <option v-for="option in subjectOptions" :key="option" :value="option">
               {{ option }}
             </option>
@@ -110,7 +110,7 @@ const subjectOptions = [
         <!-- Message -->
         <div>
           <label for="message" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Message <span class="text-red-500">*</span>
+            Nội dung <span class="text-red-500">*</span>
           </label>
           <textarea
             id="message"
@@ -118,17 +118,17 @@ const subjectOptions = [
             required
             rows="6"
             class="input-field resize-none"
-            placeholder="Please provide as much detail as possible..."
+            placeholder="Vui lòng cung cấp càng nhiều chi tiết càng tốt..."
           ></textarea>
           <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Minimum 10 characters
+            Tối thiểu 10 ký tự
           </p>
         </div>
 
         <!-- Screenshot URL (optional) -->
         <div>
           <label for="screenshot" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Screenshot URL (optional)
+            Link ảnh chụp màn hình (tùy chọn)
           </label>
           <input
             id="screenshot"
@@ -138,22 +138,22 @@ const subjectOptions = [
             placeholder="https://example.com/screenshot.png"
           />
           <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Provide a link to a screenshot if applicable
+            Cung cấp link ảnh chụp màn hình nếu có
           </p>
         </div>
 
         <!-- Submit button -->
         <div class="flex items-center justify-end space-x-4">
           <NuxtLink to="/" class="btn-secondary">
-            Cancel
+            Hủy
           </NuxtLink>
           <button
             type="submit"
             :disabled="loading || form.message.length < 10"
             class="btn-primary"
           >
-            <span v-if="loading">Sending...</span>
-            <span v-else>Send Feedback</span>
+            <span v-if="loading">Đang gửi...</span>
+            <span v-else>Gửi phản hồi</span>
           </button>
         </div>
       </form>
@@ -162,20 +162,20 @@ const subjectOptions = [
     <!-- Info card -->
     <div class="mt-6 card p-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
       <h3 class="text-lg font-medium text-blue-900 dark:text-blue-100 mb-2">
-        What happens next?
+        Điều gì xảy ra tiếp theo?
       </h3>
       <ul class="space-y-2 text-sm text-blue-800 dark:text-blue-300">
         <li class="flex items-start">
           <span class="mr-2">•</span>
-          <span>Our team will review your feedback within 1-2 business days</span>
+          <span>Đội ngũ chúng tôi sẽ xem xét phản hồi của bạn trong vòng 1-2 ngày làm việc</span>
         </li>
         <li class="flex items-start">
           <span class="mr-2">•</span>
-          <span>For urgent issues, we'll prioritize and respond as quickly as possible</span>
+          <span>Đối với các vấn đề khẩn cấp, chúng tôi sẽ ưu tiên và phản hồi ngay lập tức</span>
         </li>
         <li class="flex items-start">
           <span class="mr-2">•</span>
-          <span>You may receive a follow-up email if we need more information</span>
+          <span>Bạn có thể nhận được email nếu chúng tôi cần thêm thông tin</span>
         </li>
       </ul>
     </div>

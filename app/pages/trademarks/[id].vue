@@ -124,12 +124,18 @@ onMounted(async () => {
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Back button -->
-      <NuxtLink to="/search"
-        class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 mb-6 transition-colors group">
-        <ArrowLeftIcon class="h-5 w-5 mr-2 group-hover:-translate-x-1 transition-transform" />
-        <span class="font-medium">Quay lại tìm kiếm</span>
-      </NuxtLink>
+      <!-- Back button and Report Creator -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <NuxtLink to="/search"
+          class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors group">
+          <ArrowLeftIcon class="h-5 w-5 mr-2 group-hover:-translate-x-1 transition-transform" />
+          <span class="font-medium">Quay lại tìm kiếm</span>
+        </NuxtLink>
+
+        <!-- Report Creator Component (only show if trademark is loaded) -->
+        <TrademarkDetailTrademarkReportCreator v-if="trademark && !loading && !error" :trademark="trademark"
+          :is-favorite="isFavorite" />
+      </div>
 
       <!-- Loading state -->
       <UiLoadingSkeleton v-if="loading" type="detail" />

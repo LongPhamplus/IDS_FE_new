@@ -72,7 +72,7 @@ export const useNotificationStore = defineStore('notifications', {
             includeRead
           }
         })
-
+        console.log(response)
         if (response.success) {
           this.notifications = Array.isArray(response.data) ? response.data : []
           this.total = response.total || 0

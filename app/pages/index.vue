@@ -12,18 +12,18 @@ const handleSearch = () => {
 const features = [
   {
     icon: MagnifyingGlassIcon,
-    title: 'Advanced Search',
-    description: 'Search trademarks by name, class, owner, or registration number with powerful filters.'
+    title: 'Tìm kiếm nâng cao',
+    description: 'Tìm kiếm nhãn hiệu theo tên, nhóm, chủ sở hữu hoặc số đơn với các bộ lọc mạnh mẽ.'
   },
   {
     icon: BookmarkIcon,
-    title: 'Save Favorites',
-    description: 'Keep track of important trademarks by saving them to your personal collection.'
+    title: 'Lưu yêu thích',
+    description: 'Theo dõi các nhãn hiệu quan trọng bằng cách lưu chúng vào bộ sưu tập cá nhân của bạn.'
   },
   {
     icon: BellAlertIcon,
-    title: 'Send Feedback',
-    description: 'Report issues or suggest improvements to help us serve you better.'
+    title: 'Gửi phản hồi',
+    description: 'Báo cáo sự cố hoặc đề xuất cải tiến để giúp chúng tôi phục vụ bạn tốt hơn.'
   }
 ]
 </script>
@@ -42,14 +42,14 @@ const features = [
         <div class="text-center animate-slide-up">
           
           <h1 class="text-5xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight">
-            <span class="text-gray-900 dark:text-white">Search Trademarks</span>
+            <span class="text-gray-900 dark:text-white">Tìm kiếm nhãn hiệu</span>
             <br />
-            <span class="gradient-text">Instantly & Effortlessly</span>
+            <span class="gradient-text">Nhanh chóng & Dễ dàng</span>
           </h1>
           
           <p class="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-            Access comprehensive trademark information with our powerful search engine. 
-            Find, save, and manage trademarks with ease.
+            Truy cập thông tin nhãn hiệu toàn diện với công cụ tìm kiếm mạnh mẽ của chúng tôi.
+            Tìm, lưu và quản lý nhãn hiệu một cách dễ dàng.
           </p>
 
           <!-- Search Bar -->
@@ -61,7 +61,7 @@ const features = [
               <input
                 v-model="searchQuery"
                 type="text"
-                placeholder="Search for trademarks, brands, or companies..."
+                placeholder="Tìm kiếm nhãn hiệu, thương hiệu hoặc công ty..."
                 @keyup.enter="handleSearch"
                 class="w-full pl-16 pr-36 py-5 text-lg bg-transparent border-none text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none"
               />
@@ -69,7 +69,7 @@ const features = [
                 @click="handleSearch"
                 class="absolute right-3 top-1/2 -translate-y-1/2 btn-primary px-8 py-3 text-base"
               >
-                Search Now
+                Tìm kiếm
               </button>
             </div>
             
@@ -77,15 +77,15 @@ const features = [
             <div class="mt-8 flex items-center justify-center gap-8 text-sm text-gray-600 dark:text-gray-400">
               <div class="flex items-center gap-2">
                 <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>1M+ Trademarks</span>
+                <span>1M+ Nhãn hiệu</span>
               </div>
               <div class="flex items-center gap-2">
                 <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <span>Real-time Updates</span>
+                <span>Cập nhật thời gian thực</span>
               </div>
               <div class="flex items-center gap-2">
                 <div class="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                <span>AI-Powered</span>
+                <span>Hỗ trợ bởi AI</span>
               </div>
             </div>
           </div>
@@ -159,11 +159,11 @@ const features = [
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
       <div class="text-center mb-16 animate-slide-up">
         <h2 class="text-4xl md:text-5xl font-bold mb-4">
-          <span class="text-gray-900 dark:text-white">Why Choose</span>
-          <span class="gradient-text"> Our Platform?</span>
+          <span class="text-gray-900 dark:text-white">Tại sao chọn</span>
+          <span class="gradient-text"> Nền tảng của chúng tôi?</span>
         </h2>
         <p class="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-          Everything you need to search, manage, and track trademarks in one powerful platform.
+          Mọi thứ bạn cần để tìm kiếm, quản lý và theo dõi nhãn hiệu trong một nền tảng mạnh mẽ.
         </p>
       </div>
 
@@ -198,10 +198,10 @@ const features = [
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
         <div class="animate-slide-up">
           <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">
-            Ready to Get Started?
+            Sẵn sàng để bắt đầu?
           </h2>
           <p class="text-xl text-primary-50 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Join thousands of users who trust our platform to search and manage their trademarks efficiently.
+            Tham gia cùng hàng ngàn người dùng tin tưởng nền tảng của chúng tôi để tìm kiếm và quản lý nhãn hiệu hiệu quả.
           </p>
           <div class="flex flex-col sm:flex-row justify-center gap-4">
             <NuxtLink 
@@ -209,13 +209,13 @@ const features = [
               class="group px-10 py-4 bg-white text-primary-600 rounded-xl font-semibold shadow-2xl hover:shadow-white/20 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2"
             >
               <MagnifyingGlassIcon class="h-5 w-5 group-hover:rotate-12 transition-transform" />
-              Start Searching
+              Bắt đầu tìm kiếm
             </NuxtLink>
             <NuxtLink 
               to="/login" 
               class="px-10 py-4 bg-transparent text-white border-2 border-white rounded-xl font-semibold hover:bg-white hover:text-primary-600 transition-all duration-300 hover:scale-105"
             >
-              Sign In
+              Đăng nhập
             </NuxtLink>
           </div>
           
@@ -225,19 +225,19 @@ const features = [
               <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
-              <span>4.9/5 Rating</span>
+              <span>4.9/5 Đánh giá</span>
             </div>
             <div class="flex items-center gap-2">
               <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
               </svg>
-              <span>Trusted by 10K+ Users</span>
+              <span>Tin cậy bởi 10K+ Người dùng</span>
             </div>
             <div class="flex items-center gap-2">
               <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
               </svg>
-              <span>100% Secure</span>
+              <span>An toàn 100%</span>
             </div>
           </div>
         </div>

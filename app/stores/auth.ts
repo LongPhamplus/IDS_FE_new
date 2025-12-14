@@ -4,13 +4,12 @@ import type { User, LoginCredentials, AuthResponse } from '~/types'
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         user: null as User | null,
-        token: null as string | null,
         loading: false,
         error: null as string | null
     }),
 
     getters: {
-        // Check if user exists (token is in HTTP-only cookie, not accessible from JS)
+        // Check if user exists (httpOnly cookie không đọc được bằng JS)
         isAuthenticated: (state) => !!state.user,
         currentUser: (state) => state.user
     },
@@ -34,24 +33,14 @@ export const useAuthStore = defineStore('auth', {
                     }
 
                     this.user = demoResponse.user
-                    this.token = demoResponse.token
-
-                    // Store user in localStorage (no token needed with cookies)
-                    if (process.client) {
-                        localStorage.setItem('user', JSON.stringify(demoResponse.user))
-                    }
-
+                    // Note: Với httpOnly cookie thật, backend sẽ set cookie
+                    // Demo account không set cookie vì không qua backend
                     return demoResponse
                 }
 
-                // Real API call - backend will set cookie
-                const config = useRuntimeConfig()
-                const response = await $fetch<{ message: string }>('/fe/login', {
-                    baseURL: config.public.apiBase,
-                    method: 'POST',
-                    credentials: 'include', // Include cookies
-                    body: credentials
-                })
+                // Real API call using useApi composable
+                const { feLogin } = useApi()
+                const response = await feLogin(credentials)
 
                 // After successful login, fetch user profile
                 await this.fetchUser()
@@ -70,13 +59,9 @@ export const useAuthStore = defineStore('auth', {
             this.error = null
 
             try {
-                const config = useRuntimeConfig()
-                const response = await $fetch<{ message: string }>('/fe/register', {
-                    baseURL: config.public.apiBase,
-                    method: 'POST',
-                    credentials: 'include', // Include cookies
-                    body: credentials
-                })
+                // Use useApi composable
+                const { register } = useApi()
+                const response = await register(credentials)
 
                 return response
             } catch (error: any) {
@@ -89,48 +74,36 @@ export const useAuthStore = defineStore('auth', {
 
         async fetchUser() {
             try {
-                const config = useRuntimeConfig()
-                const response = await $fetch<{ user: any }>('/fe/userPage', {
-                    baseURL: config.public.apiBase,
-                    credentials: 'include' // Include cookies
-                })
+                // Use useApi composable
+                const { getUserProfile } = useApi()
+                const response = await getUserProfile()
 
                 // Extract user from JWT payload
                 const user: User = {
-                    id: response.user.sub || response.user.userId,
-                    email: response.user.email,
-                    name: response.user.name || response.user.email.split('@')[0],
-                    createdAt: response.user.iat ? new Date(response.user.iat * 1000).toISOString() : new Date().toISOString()
+                    id: response.sub || response.userId,
+                    email: response.email,
+                    name: response.name || response.email.split('@')[0],
+                    createdAt: response.iat ? new Date(response.iat * 1000).toISOString() : new Date().toISOString()
                 }
 
                 this.user = user
-
-                if (process.client) {
-                    localStorage.setItem('user', JSON.stringify(user))
-                }
             } catch (error) {
                 console.error('Failed to fetch user:', error)
-                this.logout()
+                // Không gọi logout ở đây vì có thể gây lỗi context
+                // Clear user state và throw error để caller xử lý
+                this.user = null
+                throw error
             }
         },
 
         async logout() {
             this.user = null
-            this.token = null
             this.error = null
 
-            if (process.client) {
-                localStorage.removeItem('user')
-            }
-
-            // Call logout endpoint to clear cookie
+            // Call logout endpoint to clear cookie on server using useApi
             try {
-                const config = useRuntimeConfig()
-                await $fetch('/fe/logout', {
-                    baseURL: config.public.apiBase,
-                    method: 'GET',
-                    credentials: 'include'
-                })
+                const { feLogout } = useApi()
+                await feLogout()
             } catch (error) {
                 console.error('Logout error:', error)
             }
@@ -139,14 +112,13 @@ export const useAuthStore = defineStore('auth', {
         },
 
         initAuth() {
-            if (process.client) {
-                const userStr = localStorage.getItem('user')
-
-                if (userStr) {
-                    this.user = JSON.parse(userStr)
-                    // Verify cookie is still valid by fetching user
-                    this.fetchUser()
-                }
+            // Với httpOnly cookie, không thể check cookie bằng useCookie ở client
+            // Chỉ cần check nếu chưa có user thì fetch
+            if (!this.user) {
+                this.fetchUser().catch(() => {
+                    // Nếu lỗi (không có cookie hoặc cookie invalid), bỏ qua
+                    // User sẽ ở trạng thái not authenticated
+                })
             }
         }
     }

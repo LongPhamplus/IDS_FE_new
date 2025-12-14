@@ -26,7 +26,6 @@ const toggleFavorite = async () => {
     navigateTo('/login')
     return
   }
-
   if (handleFavoriteAction) {
     const action = isFavorite.value ? 'remove' : 'add'
     handleFavoriteAction(props.trademark, action)

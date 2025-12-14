@@ -33,14 +33,26 @@ const refreshFavorites = async () => {
   }
 }
 
-const handleUpgrade = () => {
+const handleUpgrade = async () => {
   upgrading.value = true
-  
-  // Simulate upgrade process
-  setTimeout(() => {
-    favoritesStore.increaseFavoriteLimit(10) // Increase by 10
+
+  try {
+    const result = await favoritesStore.increaseFavoriteLimit(10)
+    toastMessage.value = result.message || 'Đã tăng giới hạn thành công!'
+    showSuccessToast.value = true
+    setTimeout(() => {
+      showSuccessToast.value = false
+    }, 3000)
+  } catch (error: any) {
+    console.error('Failed to increase limit:', error)
+    toastMessage.value = error.message || 'Có lỗi xảy ra!'
+    showSuccessToast.value = true
+    setTimeout(() => {
+      showSuccessToast.value = false
+    }, 3000)
+  } finally {
     upgrading.value = false
-  }, 1000)
+  }
 }
 
 // Favorite management functions
@@ -51,7 +63,7 @@ const handleRemoveFavorite = (trademark: Trademark) => {
 
 const confirmRemoveFavorite = async () => {
   if (!selectedTrademark.value) return
-  
+
   try {
     await favoritesStore.removeFavorite(selectedTrademark.value.id)
     toastMessage.value = 'Đã hủy lưu đơn thành công!'
@@ -82,6 +94,7 @@ provide('handleRemoveFavorite', handleRemoveFavorite)
 
 onMounted(() => {
   refreshFavorites()
+  favoritesStore.fetchSaveLimit() // Load limit from server
 })
 </script>
 
@@ -98,11 +111,7 @@ onMounted(() => {
         </p>
       </div>
 
-      <button
-        @click="refreshFavorites"
-        :disabled="loading"
-        class="btn-secondary"
-      >
+      <button @click="refreshFavorites" :disabled="loading" class="btn-secondary">
         <span v-if="loading">Đang tải...</span>
         <span v-else>Làm mới</span>
       </button>
@@ -112,20 +121,14 @@ onMounted(() => {
     <UiLoadingSkeleton v-if="favoritesStore.loading && favoritesStore.favorites.length === 0" :count="6" type="card" />
 
     <!-- Error message -->
-    <div
-      v-else-if="favoritesStore.error"
-      class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6"
-    >
+    <div v-else-if="favoritesStore.error"
+      class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg mb-6">
       {{ favoritesStore.error }}
     </div>
 
     <!-- Empty state -->
-    <UiEmptyState
-      v-else-if="favoritesStore.favorites.length === 0"
-      title="Chưa có đơn đã lưu"
-      description="Tìm kiếm nhãn hiệu và nhấn nút ❤️ để lưu vào danh sách yêu thích của bạn"
-      icon="bookmark"
-    >
+    <UiEmptyState v-else-if="favoritesStore.favorites.length === 0" title="Chưa có đơn đã lưu"
+      description="Tìm kiếm nhãn hiệu và nhấn lưu để lưu vào danh sách của bạn" icon="bookmark">
       <template #action>
         <NuxtLink to="/search" class="btn-primary">
           Bắt đầu tìm kiếm
@@ -136,21 +139,20 @@ onMounted(() => {
     <!-- Favorites grid -->
     <div v-else>
       <!-- Limit Info & Upgrade Card -->
-      <div class="mb-6 card p-6 bg-gradient-to-r from-primary-50 to-purple-50 dark:from-primary-900/20 dark:to-purple-900/20 border-2 border-primary-200 dark:border-primary-800">
+      <div
+        class="mb-6 card p-6 bg-gradient-to-r from-primary-50 to-purple-50 dark:from-primary-900/20 dark:to-purple-900/20 border-2 border-primary-200 dark:border-primary-800">
         <div class="flex items-center justify-between">
           <div class="flex-1">
             <div class="flex items-center space-x-3 mb-2">
               <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
                 Giới hạn đơn lưu
               </h3>
-              <span 
-                :class="[
-                  'px-3 py-1 rounded-full text-sm font-semibold',
-                  favoritesStore.isLimitReached 
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
-                    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                ]"
-              >
+              <span :class="[
+                'px-3 py-1 rounded-full text-sm font-semibold',
+                favoritesStore.isLimitReached
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                  : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+              ]">
                 {{ favoritesStore.favoritesCount }} / {{ favoritesStore.favoriteLimit }}
               </span>
             </div>
@@ -159,17 +161,14 @@ onMounted(() => {
                 Bạn đã đạt giới hạn! Nâng cấp để lưu thêm nhiều đơn hơn.
               </span>
               <span v-else>
-                Còn lại <span class="font-semibold text-gray-900 dark:text-gray-100">{{ favoritesStore.remainingSlots }}</span> slot
+                Còn lại <span class="font-semibold text-gray-900 dark:text-gray-100">{{ favoritesStore.remainingSlots
+                }}</span> slot
               </span>
             </p>
           </div>
-          
-          <button
-            v-if="!favoritesStore.isPremium"
-            @click="handleUpgrade"
-            :disabled="upgrading"
-            class="btn-primary flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-700 hover:to-purple-700"
-          >
+
+          <button v-if="!favoritesStore.isPremium" @click="handleUpgrade" :disabled="upgrading"
+            class="btn-primary flex items-center space-x-2 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-700 hover:to-purple-700">
             <SparklesIcon class="h-5 w-5" />
             <span v-if="upgrading">Đang nâng cấp...</span>
             <span v-else>Tăng giới hạn +10</span>
@@ -179,32 +178,22 @@ onMounted(() => {
 
       <!-- Favorites grid -->
       <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <TrademarkCard
-          v-for="trademark in favoritesStore.favorites"
-          :key="trademark.id"
-          :trademark="trademark"
-        />
+        <TrademarkCard v-for="trademark in favoritesStore.favorites" :key="trademark.id" :trademark="trademark" />
       </div>
     </div>
 
     <!-- Confirmation Modal -->
     <Teleport to="body">
-      <Transition
-        enter-active-class="transition-opacity duration-300"
-        enter-from-class="opacity-0"
-        enter-to-class="opacity-100"
-        leave-active-class="transition-opacity duration-300"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-      >
-        <div
-          v-if="showConfirmModal"
+      <Transition enter-active-class="transition-opacity duration-300" enter-from-class="opacity-0"
+        enter-to-class="opacity-100" leave-active-class="transition-opacity duration-300" leave-from-class="opacity-100"
+        leave-to-class="opacity-0">
+        <div v-if="showConfirmModal"
           class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          @click.self="cancelRemoveFavorite"
-        >
+          @click.self="cancelRemoveFavorite">
           <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6">
             <div class="flex items-center gap-4 mb-4">
-              <div class="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <div
+                class="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
                 <ExclamationTriangleIcon class="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
@@ -216,7 +205,7 @@ onMounted(() => {
                 </p>
               </div>
             </div>
-            
+
             <div v-if="selectedTrademark" class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-1">
                 {{ selectedTrademark.name || selectedTrademark.ten_nhan_hieu || 'N/A' }}
@@ -227,16 +216,12 @@ onMounted(() => {
             </div>
 
             <div class="flex gap-3">
-              <button
-                @click="cancelRemoveFavorite"
-                class="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors"
-              >
+              <button @click="cancelRemoveFavorite"
+                class="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg font-medium transition-colors">
                 Hủy
               </button>
-              <button
-                @click="confirmRemoveFavorite"
-                class="flex-1 px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors"
-              >
+              <button @click="confirmRemoveFavorite"
+                class="flex-1 px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors">
                 Hủy lưu đơn
               </button>
             </div>
@@ -247,29 +232,21 @@ onMounted(() => {
 
     <!-- Success Toast -->
     <Teleport to="body">
-      <Transition
-        enter-active-class="transition-all duration-300 ease-out"
-        enter-from-class="opacity-0 translate-y-2"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition-all duration-300 ease-in"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 translate-y-2"
-      >
-        <div
-          v-if="showSuccessToast"
-          class="fixed top-4 right-4 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm"
-        >
+      <Transition enter-active-class="transition-all duration-300 ease-out" enter-from-class="opacity-0 translate-y-2"
+        enter-to-class="opacity-100 translate-y-0" leave-active-class="transition-all duration-300 ease-in"
+        leave-from-class="opacity-100 translate-y-0" leave-to-class="opacity-0 translate-y-2">
+        <div v-if="showSuccessToast"
+          class="fixed top-4 right-4 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm">
           <div class="flex items-center gap-3">
-            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+            <div
+              class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
               <CheckCircleIcon class="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
               {{ toastMessage }}
             </p>
-            <button
-              @click="showSuccessToast = false"
-              class="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
+            <button @click="showSuccessToast = false"
+              class="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
               <XMarkIcon class="h-4 w-4" />
             </button>
           </div>

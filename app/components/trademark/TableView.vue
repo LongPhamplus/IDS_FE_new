@@ -17,12 +17,23 @@ const favoritesStore = useFavoritesStore()
 const isFavorite = (id: any) => favoritesStore.isFavorite(id)
 const saving = ref<Record<string, boolean>>({})
 
+// Try to get handlers from parent pages
+const handleFavoriteAction = inject('handleFavoriteAction', null) as ((trademark: any, action: 'add' | 'remove') => void) | null
+
 const toggleFavorite = async (trademark: Trademark) => {
   if (!authStore.isAuthenticated) {
     navigateTo('/login')
     return
   }
 
+  // If parent provides handler, use it to show confirmation modal
+  if (handleFavoriteAction) {
+    const action = isFavorite(trademark.id) ? 'remove' : 'add'
+    handleFavoriteAction(trademark, action)
+    return
+  }
+
+  // Fallback: direct action without modal
   saving.value[trademark.id] = true
   try {
     if (isFavorite(trademark.id)) {
@@ -57,48 +68,50 @@ const getStatusColor = (status: string) => {
       <table class="w-full">
         <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <tr>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            <th
+              class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
               Nhãn hiệu
             </th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            <th
+              class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
               Tên
             </th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            <th
+              class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
               Chủ đơn
             </th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            <th
+              class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
               Mã nhóm
             </th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            <th
+              class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
               Trạng thái
             </th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            <th
+              class="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
               Số đơn
             </th>
-            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+            <th
+              class="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
               Hành động
             </th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-          <tr 
-            v-for="trademark in trademarks" 
-            :key="trademark.id"
-            class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-          >
+          <tr v-for="trademark in trademarks" :key="trademark.id"
+            class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
             <!-- Image -->
             <td class="px-6 py-4">
               <NuxtLink :to="`/trademarks/${trademark.so_don}`">
-                <div class="w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
-                  <img 
-                    v-if="trademark.imageUrl" 
-                    :src="trademark.imageUrl" 
-                    :alt="trademark.name"
+                <div
+                  class="w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
+                  <img v-if="trademark.imageUrl" :src="trademark.imageUrl" :alt="trademark.name"
                     class="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
-                    loading="lazy"
-                  />
+                    loading="lazy" />
                   <div v-else class="w-full h-full flex items-center justify-center">
-                    <span class="text-xl font-bold text-gray-400 dark:text-gray-600">{{ trademark.name.charAt(0) }}</span>
+                    <span class="text-xl font-bold text-gray-400 dark:text-gray-600">{{ trademark.name.charAt(0)
+                      }}</span>
                   </div>
                 </div>
               </NuxtLink>
@@ -106,10 +119,8 @@ const getStatusColor = (status: string) => {
 
             <!-- Name -->
             <td class="px-6 py-4">
-              <NuxtLink 
-                :to="`/trademarks/${trademark.so_don}`"
-                class="font-semibold text-gray-900 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-              >
+              <NuxtLink :to="`/trademarks/${trademark.so_don}`"
+                class="font-semibold text-gray-900 dark:text-gray-100 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
                 {{ trademark.name }}
               </NuxtLink>
             </td>
@@ -126,10 +137,8 @@ const getStatusColor = (status: string) => {
 
             <!-- Status -->
             <td class="px-6 py-4">
-              <span 
-                class="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap"
-                :class="getStatusColor(trademark.status)"
-              >
+              <span class="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap"
+                :class="getStatusColor(trademark.status)">
                 {{ trademark.status }}
               </span>
             </td>
@@ -144,19 +153,15 @@ const getStatusColor = (status: string) => {
             <!-- Actions -->
             <td class="px-6 py-4 text-right">
               <div class="flex items-center justify-end space-x-3">
-                <button
-                  @click="toggleFavorite(trademark)"
-                  :disabled="saving[trademark.id]"
+                <button @click="toggleFavorite(trademark)" :disabled="saving[trademark.id]"
                   class="text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors focus:outline-none"
-                  :class="{ 'opacity-50 cursor-not-allowed': saving[trademark.id] }"
-                >
-                  <BookmarkSolid v-if="isFavorite(trademark.id)" class="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                  :class="{ 'opacity-50 cursor-not-allowed': saving[trademark.id] }">
+                  <BookmarkSolid v-if="isFavorite(trademark.id)"
+                    class="h-5 w-5 text-primary-600 dark:text-primary-400" />
                   <BookmarkOutline v-else class="h-5 w-5" />
                 </button>
-                <NuxtLink
-                  :to="`/trademarks/${trademark.so_don}`"
-                  class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium"
-                >
+                <NuxtLink :to="`/trademarks/${trademark.so_don}`"
+                  class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium">
                   View →
                 </NuxtLink>
               </div>

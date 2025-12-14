@@ -3,8 +3,86 @@ import type { Trademark, SearchParams, PaginatedResponse, Feedback } from '~/typ
 export const useApi = () => {
   const config = useRuntimeConfig()
 
+  // ==================== REFRESH TOKEN LOGIC ====================
+
+  // Biến để tránh gọi refresh nhiều lần cùng lúc (race condition)
+  let isRefreshing = false
+  let refreshPromise: Promise<boolean> | null = null
+
+  /**
+   * POST /fe/auth/refresh
+   * Refresh access token using refresh_token_fe cookie
+   * Returns true if refresh successful, false otherwise
+   */
+  const refreshToken = async (): Promise<boolean> => {
+    // Nếu đang refresh, đợi kết quả
+    if (isRefreshing && refreshPromise) {
+      return refreshPromise
+    }
+
+    isRefreshing = true
+    refreshPromise = (async () => {
+      try {
+        const response = await $fetch<{ success: boolean; message: string }>('/fe/auth/refresh', {
+          baseURL: config.public.apiBase,
+          method: 'POST',
+          credentials: 'include'
+        })
+        return response.success
+      } catch (error) {
+        console.error('Refresh token failed:', error)
+        return false
+      } finally {
+        isRefreshing = false
+        refreshPromise = null
+      }
+    })()
+
+    return refreshPromise
+  }
+
+  /**
+   * Helper function to make API calls with automatic token refresh
+   * Automatically retries the request once if 401 is received and refresh succeeds
+   */
+  const fetchWithAuth = async <T>(
+    url: string,
+    options: Parameters<typeof $fetch>[1] = {}
+  ): Promise<T> => {
+    const fetchOptions = {
+      ...options,
+      baseURL: config.public.apiBase,
+      credentials: 'include' as const
+    }
+
+    try {
+      return await $fetch<T>(url, fetchOptions)
+    } catch (error: any) {
+      // Nếu lỗi 401 (Unauthorized), thử refresh token
+      if (error?.response?.status === 401 || error?.statusCode === 401) {
+        console.log('Access token expired, attempting refresh...')
+        const refreshed = await refreshToken()
+
+        if (refreshed) {
+          console.log('Token refreshed successfully, retrying request...')
+          // Retry request sau khi refresh thành công
+          return await $fetch<T>(url, fetchOptions)
+        } else {
+          // Refresh thất bại, redirect về login
+          console.log('Refresh failed, redirecting to login...')
+          const router = useRouter()
+          router.push('/login')
+          throw new Error('Session expired. Please login again.')
+        }
+      }
+
+      // Các lỗi khác, throw lại
+      throw error
+    }
+  }
+
   // ==================== TRADEMARK APIs ====================
-  
+
   /**
    * GET /api/trademark
    * Search/Get all trademarks with query parameters
@@ -13,7 +91,7 @@ export const useApi = () => {
   const searchTrademarks = async (params: SearchParams): Promise<PaginatedResponse<Trademark>> => {
     try {
       const queryParams = new URLSearchParams()
-      
+
       // Map frontend params to backend params
       if (params.q) {
         queryParams.append('mo_ta_nhan_hieu', params.q) // Tên nhãn hiệu hoặc số đơn
@@ -48,7 +126,7 @@ export const useApi = () => {
             break
         }
       }
-      
+
       // Map type to backend format
       if (params.type) {
         if (params.type === 'trademark') {
@@ -58,13 +136,9 @@ export const useApi = () => {
         }
       }
 
-      
-      const response = await $fetch<Trademark[]>(
-        `/api/trademark?${queryParams.toString()}`,
-        {
-          baseURL: config.public.apiBase,
-          credentials: 'include'
-        }
+
+      const response = await fetchWithAuth<Trademark[]>(
+        `/api/trademark?${queryParams.toString()}`
       )
 
 
@@ -94,21 +168,21 @@ export const useApi = () => {
         };
 
         // Safely get classes from nhom_dich_vu
-        const classes = Array.isArray(item.nhom_dich_vu) 
+        const classes = Array.isArray(item.nhom_dich_vu)
           ? item.nhom_dich_vu.map((nhom: any) => {
-              const services = Array.isArray(nhom.dich_vu) 
-                ? nhom.dich_vu.map((dv: any) => dv.mo_ta_dich_vu || '')
-                : []
-              
-              // Get ma_nhom from dich_vu
-              const classNumber = nhom.dich_vu?.ma_nhom || nhom.nhom_sp || ''
-              
-              return {
-                classNumber,
-                description: services.join(', '),
-                services
-              }
-            })
+            const services = Array.isArray(nhom.dich_vu)
+              ? nhom.dich_vu.map((dv: any) => dv.mo_ta_dich_vu || '')
+              : []
+
+            // Get ma_nhom from dich_vu
+            const classNumber = nhom.dich_vu?.ma_nhom || nhom.nhom_sp || ''
+
+            return {
+              classNumber,
+              description: services.join(', '),
+              services
+            }
+          })
           : []
 
         // Get unique ma_nhom values for display
@@ -118,11 +192,11 @@ export const useApi = () => {
         // Safely get progress
         const progress = Array.isArray(item.tien_trinh)
           ? item.tien_trinh.map((tt: any) => ({
-              id: tt.id,
-              nhan_hieu_id: tt.nhan_hieu_id,
-              ngay_xu_ly: tt.ngay_xu_ly,
-              noi_dung_xu_ly: tt.noi_dung_xu_ly
-            }))
+            id: tt.id,
+            nhan_hieu_id: tt.nhan_hieu_id,
+            ngay_xu_ly: tt.ngay_xu_ly,
+            noi_dung_xu_ly: tt.noi_dung_xu_ly
+          }))
           : []
 
         return {
@@ -147,7 +221,7 @@ export const useApi = () => {
       const limit = params.limit || 12
       const startIndex = (page - 1) * limit
       const endIndex = startIndex + limit
-      
+
       const paginatedData = transformedData.slice(startIndex, endIndex)
       const total = transformedData.length
       const totalPages = Math.ceil(total / limit)
@@ -176,11 +250,8 @@ export const useApi = () => {
    */
   const getTrademarkBySlug = async (slug: string): Promise<any> => {
     try {
-      
-      const response = await $fetch<any>(`/api/trademark/${slug}`, {
-        baseURL: config.public.apiBase,
-        credentials: 'include'
-      })
+
+      const response = await fetchWithAuth<any>(`/api/trademark/${slug}`)
 
 
       // Transform backend data to frontend format
@@ -198,21 +269,21 @@ export const useApi = () => {
         };
 
         // Safely get classes from nhom_dich_vu
-        const classes = Array.isArray(response.nhom_dich_vu) 
+        const classes = Array.isArray(response.nhom_dich_vu)
           ? response.nhom_dich_vu.map((nhom: any) => {
-              const services = Array.isArray(nhom.dich_vu) 
-                ? nhom.dich_vu.map((dv: any) => dv.mo_ta_dich_vu || '')
-                : []
-              
-              // Get ma_nhom from dich_vu
-              const classNumber = nhom.dich_vu?.ma_nhom || nhom.nhom_sp || ''
-              
-              return {
-                classNumber,
-                description: services.join(', '),
-                services
-              }
-            })
+            const services = Array.isArray(nhom.dich_vu)
+              ? nhom.dich_vu.map((dv: any) => dv.mo_ta_dich_vu || '')
+              : []
+
+            // Get ma_nhom from dich_vu
+            const classNumber = nhom.dich_vu?.ma_nhom || nhom.nhom_sp || ''
+
+            return {
+              classNumber,
+              description: services.join(', '),
+              services
+            }
+          })
           : []
 
         // Get unique ma_nhom values for display
@@ -222,11 +293,11 @@ export const useApi = () => {
         // Safely get progress
         const progress = Array.isArray(response.tien_trinh)
           ? response.tien_trinh.map((tt: any) => ({
-              id: tt.id,
-              nhan_hieu_id: tt.nhan_hieu_id,
-              ngay_xu_ly: tt.ngay_xu_ly,
-              noi_dung_xu_ly: tt.noi_dung_xu_ly
-            }))
+            id: tt.id,
+            nhan_hieu_id: tt.nhan_hieu_id,
+            ngay_xu_ly: tt.ngay_xu_ly,
+            noi_dung_xu_ly: tt.noi_dung_xu_ly
+          }))
           : []
 
         return {
@@ -270,24 +341,6 @@ export const useApi = () => {
   // ==================== USER APIs ====================
 
   /**
-   * GET /api/user/:email
-   * Get user by email
-   */
-  const getUserByEmail = async (email: string) => {
-    try {
-      const response = await $fetch(`/api/user/${email}`, {
-        baseURL: config.public.apiBase,
-        credentials: 'include'
-      })
-
-      return response
-    } catch (error) {
-      console.error('Failed to fetch user:', error)
-      throw error
-    }
-  }
-
-  /**
    * POST /api/user/report
    * Create a report for trademark violation
    */
@@ -297,10 +350,8 @@ export const useApi = () => {
     trademark: number
   }) => {
     try {
-      const response = await $fetch<{ message: string; status: boolean }>('/api/user/report', {
-        baseURL: config.public.apiBase,
+      const response = await fetchWithAuth<{ message: string; status: boolean }>('/api/user/report', {
         method: 'POST',
-        credentials: 'include',
         body: reportData
       })
 
@@ -312,44 +363,6 @@ export const useApi = () => {
   }
 
   // ==================== AUTH APIs ====================
-
-  /**
-   * POST /auth/login
-   * User login (returns redirect or error)
-   * Note: This is handled by backend with cookies
-   */
-  const login = async (credentials: { email: string; password: string }) => {
-    try {
-      const response = await $fetch('/auth/login', {
-        baseURL: config.public.apiBase,
-        method: 'POST',
-        credentials: 'include',
-        body: credentials
-      })
-
-      return response
-    } catch (error) {
-      console.error('Login failed:', error)
-      throw error
-    }
-  }
-
-  /**
-   * GET /auth/logout
-   * User logout
-   */
-  const logout = async () => {
-    try {
-      await $fetch('/auth/logout', {
-        baseURL: config.public.apiBase,
-        credentials: 'include'
-      })
-    } catch (error) {
-      console.error('Logout failed:', error)
-      throw error
-    }
-  }
-
   /**
    * GET /auth/verify?token=xxx
    * Verify user account with token
@@ -376,13 +389,13 @@ export const useApi = () => {
    */
   const feLogin = async (credentials: { email: string; password: string }) => {
     try {
-      const response = await $fetch<{ message: string }>('/fe/login', {
+      const response = await $fetch<{ message: string }>('/fe/auth/login', {
         baseURL: config.public.apiBase,
         method: 'POST',
         credentials: 'include',
         body: credentials
       })
-
+      console.log(response)
       return response
     } catch (error) {
       console.error('FE Login failed:', error)
@@ -396,10 +409,7 @@ export const useApi = () => {
    */
   const getUserProfile = async () => {
     try {
-      const response = await $fetch<{ user: any }>('/fe/userPage', {
-        baseURL: config.public.apiBase,
-        credentials: 'include'
-      })
+      const response = await fetchWithAuth<{ user: any }>('/fe/auth/me')
 
       return response.user
     } catch (error) {
@@ -414,7 +424,7 @@ export const useApi = () => {
    */
   const feLogout = async () => {
     try {
-      const response = await $fetch<{ message: string }>('/fe/logout', {
+      const response = await $fetch<{ message: string }>('/fe/auth/logout', {
         baseURL: config.public.apiBase,
         credentials: 'include'
       })
@@ -436,7 +446,7 @@ export const useApi = () => {
     name?: string
   }) => {
     try {
-      const response = await $fetch('/fe/register', {
+      const response = await $fetch('/fe/auth/register', {
         baseURL: config.public.apiBase,
         method: 'POST',
         credentials: 'include',
@@ -451,15 +461,13 @@ export const useApi = () => {
   }
 
   /**
-   * POST /fe/user/add/
+   * POST /fe/saved/add
    * Add trademark to user's saved list (favorites)
    */
-  const addToFavorites = async (userId: number, so_don: string) => {
+  const addToFavorites = async (userId: number | undefined, so_don: string) => {
     try {
-      const response = await $fetch<{ message: string }>('/fe/user/add/', {
-        baseURL: config.public.apiBase,
+      const response = await fetchWithAuth<{ message: string; success?: boolean }>('/fe/saved/add', {
         method: 'POST',
-        credentials: 'include',
         body: { userId, order: so_don }
       })
 
@@ -471,15 +479,13 @@ export const useApi = () => {
   }
 
   /**
-   * POST /fe/user/delete/
+   * POST /fe/saved/delete
    * Remove trademark from user's saved list (favorites)
    */
-  const removeFromFavorites = async (userId: number, so_don: string) => {
+  const removeFromFavorites = async (userId: number | undefined, so_don: string) => {
     try {
-      const response = await $fetch<{ message: string }>('/fe/user/delete/', {
-        baseURL: config.public.apiBase,
+      const response = await fetchWithAuth<{ message: string; success?: boolean }>('/fe/saved/delete', {
         method: 'POST',
-        credentials: 'include',
         body: { userId, order: so_don }
       })
 
@@ -490,123 +496,17 @@ export const useApi = () => {
     }
   }
 
-  // ==================== ADMIN APIs ====================
-
   /**
-   * GET /admin/editors-leaders
-   * Get all editors with their assigned leaders
+   * GET /fe/saved/list
+   * Get user's saved trademarks list
    */
-  const getEditorsWithLeaders = async () => {
+  const getSavedTrademarks = async () => {
     try {
-      const response = await $fetch('/admin/editors-leaders', {
-        baseURL: config.public.apiBase,
-        credentials: 'include'
-      })
+      const response = await fetchWithAuth<{ success: boolean; data: any[] } | any[]>('/fe/saved/list')
 
       return response
     } catch (error) {
-      console.error('Failed to get editors with leaders:', error)
-      throw error
-    }
-  }
-
-  /**
-   * POST /admin/update-user-role
-   * Update user role (admin only)
-   */
-  const updateUserRole = async (userId: number, role: string) => {
-    try {
-      const response = await $fetch('/admin/update-user-role', {
-        baseURL: config.public.apiBase,
-        method: 'POST',
-        credentials: 'include',
-        body: { userId, role }
-      })
-
-      return response
-    } catch (error) {
-      console.error('Failed to update user role:', error)
-      throw error
-    }
-  }
-
-  /**
-   * POST /admin/update-editor-leader
-   * Update editor's assigned leader (admin only)
-   */
-  const updateEditorLeader = async (editorId: number, newLeaderEmail: string) => {
-    try {
-      const response = await $fetch('/admin/update-editor-leader', {
-        baseURL: config.public.apiBase,
-        method: 'POST',
-        credentials: 'include',
-        body: { editorId, newLeaderEmail }
-      })
-
-      return response
-    } catch (error) {
-      console.error('Failed to update editor leader:', error)
-      throw error
-    }
-  }
-
-  /**
-   * POST /admin/leader-data
-   * Update leader report data (admin only)
-   */
-  const updateLeaderData = async () => {
-    try {
-      const response = await $fetch('/admin/leader-data', {
-        baseURL: config.public.apiBase,
-        method: 'POST',
-        credentials: 'include'
-      })
-
-      return response
-    } catch (error) {
-      console.error('Failed to update leader data:', error)
-      throw error
-    }
-  }
-
-  // ==================== TRADEMARK MANAGEMENT APIs ====================
-
-  /**
-   * POST /trademark-management/add
-   * Create new trademark (with optional logo upload)
-   */
-  const createTrademark = async (formData: FormData) => {
-    try {
-      const response = await $fetch('/trademark-management/add', {
-        baseURL: config.public.apiBase,
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      })
-
-      return response
-    } catch (error) {
-      console.error('Failed to create trademark:', error)
-      throw error
-    }
-  }
-
-  /**
-   * POST /trademark-management/edit
-   * Update existing trademark (with optional logo upload)
-   */
-  const updateTrademark = async (formData: FormData) => {
-    try {
-      const response = await $fetch('/trademark-management/edit', {
-        baseURL: config.public.apiBase,
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      })
-
-      return response
-    } catch (error) {
-      console.error('Failed to update trademark:', error)
+      console.error('Failed to get saved trademarks:', error)
       throw error
     }
   }
@@ -619,10 +519,8 @@ export const useApi = () => {
    */
   const sendFeedback = async (feedback: Feedback): Promise<void> => {
     try {
-      await $fetch('/api/feedback', {
-        baseURL: config.public.apiBase,
+      await fetchWithAuth('/api/feedback', {
         method: 'POST',
-        credentials: 'include',
         body: feedback
       })
     } catch (error) {
@@ -631,21 +529,72 @@ export const useApi = () => {
     }
   }
 
+  // ==================== SAVE LIMIT APIs ====================
+
+  /**
+   * GET /fe/saved/limit
+   * Get user's save limit and current count
+   */
+  const getSaveLimit = async () => {
+    try {
+      const response = await fetchWithAuth<{
+        success: boolean
+        data: {
+          limit: number
+          currentCount: number
+          remainingSlots: number
+          isLimitReached: boolean
+        }
+      }>('/fe/saved/limit')
+      return response.data
+    } catch (error) {
+      console.error('Failed to get save limit:', error)
+      throw error
+    }
+  }
+
+  /**
+   * POST /fe/saved/increase-limit
+   * Increase user's save limit
+   */
+  const increaseSaveLimit = async (amount: number = 10) => {
+    try {
+      const response = await fetchWithAuth<{
+        success: boolean
+        message: string
+        data: {
+          limit: number
+          currentCount: number
+          remainingSlots: number
+          isLimitReached: boolean
+        }
+      }>('/fe/saved/increase-limit', {
+        method: 'POST',
+        body: { amount }
+      })
+      return response.data
+    } catch (error) {
+      console.error('Failed to increase save limit:', error)
+      throw error
+    }
+  }
+
   return {
+    // Auth & Token Management
+    refreshToken,
+    fetchWithAuth,
+
     // Trademark APIs
     searchTrademarks,
     getTrademarkBySlug,
     getTrademarkLogoUrl,
-    
+
     // User APIs
-    getUserByEmail,
     createReport,
-    
+
     // Auth APIs (Backend page auth)
-    login,
-    logout,
     verifyAccount,
-    
+
     // Frontend User APIs
     feLogin,
     feLogout,
@@ -653,17 +602,12 @@ export const useApi = () => {
     register,
     addToFavorites,
     removeFromFavorites,
-    
-    // Admin APIs
-    getEditorsWithLeaders,
-    updateUserRole,
-    updateEditorLeader,
-    updateLeaderData,
-    
-    // Trademark Management APIs
-    createTrademark,
-    updateTrademark,
-    
+    getSavedTrademarks,
+
+    // Save Limit APIs
+    getSaveLimit,
+    increaseSaveLimit,
+
     // Feedback APIs
     sendFeedback,
 
@@ -671,3 +615,4 @@ export const useApi = () => {
     getTrademarkById: getTrademarkBySlug
   }
 }
+

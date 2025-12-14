@@ -12,12 +12,16 @@ export const useFavoritesStore = defineStore('favorites', {
   }),
 
   getters: {
-    isFavorite: (state) => (trademarkId: string | number) => {
-      // Defensive check to ensure favorites is always an array
+    // Check by both id and so_don for backend compatibility
+    isFavorite: (state) => (trademarkIdOrSoDon: string | number) => {
       if (!Array.isArray(state.favorites)) {
         return false
       }
-      return state.favorites.some(tm => String(tm.id) === String(trademarkId))
+      const searchValue = String(trademarkIdOrSoDon)
+      return state.favorites.some(tm =>
+        String(tm.id) === searchValue ||
+        String(tm.so_don) === searchValue
+      )
     },
     favoritesCount: (state) => Array.isArray(state.favorites) ? state.favorites.length : 0,
     remainingSlots: (state) => state.favoriteLimit - (Array.isArray(state.favorites) ? state.favorites.length : 0),
@@ -46,17 +50,16 @@ export const useFavoritesStore = defineStore('favorites', {
           return
         }
 
-        const config = useRuntimeConfig()
-        
-        // Fetch saved trademarks from backend
-        const response = await $fetch<any[]>('/fe/user/saved', {
-          baseURL: config.public.apiBase,
-          credentials: 'include'
-        })
-        
-        
+        const { getSavedTrademarks } = useApi()
+        const response = await getSavedTrademarks()
+
+        // Handle response - could be { success, data } or direct array
+        const trademarks = Array.isArray(response)
+          ? response
+          : (response as any)?.data || []
+
         // Normalize backend data to frontend format
-        const normalizedTrademarks = Array.isArray(response) ? response.map((item: any) => ({
+        const normalizedTrademarks = Array.isArray(trademarks) ? trademarks.map((item: any) => ({
           id: item.id,
           name: item.ten_nhan_hieu || item.name || 'N/A',
           class: item.loai_don || item.class || 'N/A',
@@ -76,7 +79,7 @@ export const useFavoritesStore = defineStore('favorites', {
           ngay_het_han: item.ngay_het_han,
           chu_don_id: item.chu_don_id
         })) : []
-        
+
         this.favorites = normalizedTrademarks
       } catch (error: any) {
         this.error = error.data?.message || 'Failed to fetch favorites'
@@ -99,6 +102,12 @@ export const useFavoritesStore = defineStore('favorites', {
         this.favorites = []
       }
 
+      // Check if already exists by so_don
+      if (trademark.so_don && this.favorites.some(tm => tm.so_don === trademark.so_don)) {
+        console.log('Trademark already in favorites')
+        return
+      }
+
       // Check limit
       if (this.isLimitReached) {
         throw new Error(`Bạn đã đạt giới hạn ${this.favoriteLimit} đơn lưu. Nâng cấp để lưu thêm!`)
@@ -108,31 +117,27 @@ export const useFavoritesStore = defineStore('favorites', {
       this.favorites.push(trademark)
 
       try {
-        const config = useRuntimeConfig()
-        const response = await $fetch<{ message: string }>('/fe/user/add', {
-          baseURL: config.public.apiBase,
-          method: 'POST',
-          credentials: 'include', // Include cookies
-          body: { 
-            userId: authStore.user?.id,
-            order: trademark.so_don,
-          }
-        })
-        
-        if (response.message === 'Đã tồn tại đơn.') {
-          console.log('Trademark already saved')
+        if (!trademark.so_don) {
+          throw new Error('Trademark so_don is missing')
+        }
+        const { addToFavorites } = useApi()
+        const userId = authStore.user?.id ? Number(authStore.user.id) : undefined
+        const response = await addToFavorites(userId, trademark.so_don)
+
+        if (response?.message === 'Đã tồn tại đơn.') {
+          console.log('Trademark already saved on server')
         }
       } catch (error: any) {
-        // Rollback on error
+        // Rollback on error - use so_don for matching
         if (Array.isArray(this.favorites)) {
-          this.favorites = this.favorites.filter(tm => String(tm.id) !== String(trademark.id))
+          this.favorites = this.favorites.filter(tm => tm.so_don !== trademark.so_don)
         }
         this.error = error.data?.message || 'Failed to add favorite'
         throw error
       }
     },
 
-    async removeFavorite(trademarkId: string | number) {
+    async removeFavorite(trademarkIdOrSoDon: string | number) {
       const authStore = useAuthStore()
       if (!authStore.isAuthenticated) return
 
@@ -144,25 +149,28 @@ export const useFavoritesStore = defineStore('favorites', {
 
       // Store for rollback
       const previousFavorites = [...this.favorites]
-      
-      // Find the trademark to get so_don
-      const trademark = this.favorites.find(tm => String(tm.id) === String(trademarkId))
+
+      // Find the trademark by id or so_don
+      const searchValue = String(trademarkIdOrSoDon)
+      const trademark = this.favorites.find(tm =>
+        String(tm.id) === searchValue ||
+        String(tm.so_don) === searchValue
+      )
       if (!trademark) return
-      
-      // Optimistic update
-      this.favorites = this.favorites.filter(tm => String(tm.id) !== String(trademarkId))
+
+      // Optimistic update - remove by matching id or so_don
+      this.favorites = this.favorites.filter(tm =>
+        String(tm.id) !== searchValue &&
+        String(tm.so_don) !== searchValue
+      )
 
       try {
-        const config = useRuntimeConfig()
-        await $fetch<{ message: string }>('/fe/user/delete/', {
-          baseURL: config.public.apiBase,
-          method: 'POST',
-          credentials: 'include', // Include cookies
-          body: {
-            userId: authStore.user?.id,
-            order: trademark.so_don,
-          }
-        })
+        if (!trademark.so_don) {
+          throw new Error('Trademark so_don is missing')
+        }
+        const { removeFromFavorites } = useApi()
+        const userId = authStore.user?.id ? Number(authStore.user.id) : undefined
+        await removeFromFavorites(userId, trademark.so_don)
       } catch (error: any) {
         // Rollback on error
         this.favorites = previousFavorites
@@ -176,13 +184,61 @@ export const useFavoritesStore = defineStore('favorites', {
       this.error = null
     },
 
+    /**
+     * Fetch save limit from server
+     */
+    async fetchSaveLimit() {
+      const authStore = useAuthStore()
+      if (!authStore.isAuthenticated) {
+        this.favoriteLimit = 3
+        return
+      }
+
+      try {
+        const { getSaveLimit } = useApi()
+        const limitData = await getSaveLimit()
+
+        this.favoriteLimit = limitData.limit
+        this.isPremium = limitData.limit > 10 // Consider premium if limit > 10
+      } catch (error) {
+        console.error('Failed to fetch save limit:', error)
+        // Keep default limit on error
+      }
+    },
+
+    /**
+     * Increase save limit via server API
+     */
+    async increaseFavoriteLimit(amount: number = 10) {
+      const authStore = useAuthStore()
+      if (!authStore.isAuthenticated) {
+        throw new Error('Must be logged in to increase limit')
+      }
+
+      try {
+        const { increaseSaveLimit } = useApi()
+        const limitData = await increaseSaveLimit(amount)
+
+        this.favoriteLimit = limitData.limit
+        this.isPremium = limitData.limit > 10
+
+        return {
+          success: true,
+          newLimit: limitData.limit,
+          message: `Đã tăng giới hạn lên ${limitData.limit} đơn`
+        }
+      } catch (error: any) {
+        this.error = error.data?.message || 'Failed to increase limit'
+        throw error
+      }
+    },
+
+    /**
+     * @deprecated Use fetchSaveLimit() instead - this only updates local state
+     */
     upgradeToPremium() {
       this.isPremium = true
       this.favoriteLimit = 50 // Premium users can save 50 trademarks
-    },
-
-    increaseFavoriteLimit(amount: number) {
-      this.favoriteLimit += amount
     }
   }
 })
