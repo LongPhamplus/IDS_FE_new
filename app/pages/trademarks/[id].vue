@@ -193,8 +193,8 @@ onMounted(async () => {
           <TrademarkDetailTrademarkCertificateCard v-if="trademark.so_bang" :trademark="trademark" />
 
           <!-- Progress Timeline -->
-          <TrademarkDetailTrademarkProgressTimeline v-if="trademark.tien_trinh?.length"
-            :progress="trademark.tien_trinh" />
+          <!-- <TrademarkDetailTrademarkProgressTimeline v-if="trademark.tien_trinh?.length"
+            :progress="trademark.tien_trinh" /> -->
 
           <!-- Related Trademarks -->
           <div v-if="trademark.relatedTrademarks?.length"
