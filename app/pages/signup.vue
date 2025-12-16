@@ -16,6 +16,7 @@ const route = useRoute()
 const form = reactive({
   name: '',
   email: '',
+  phone: '',
   password: '',
   confirmPassword: ''
 })
@@ -30,7 +31,7 @@ const handleSignup = async () => {
   error.value = ''
   
   // Validation
-  if (!form.name || !form.email || !form.password || !form.confirmPassword) {
+  if (!form.name || !form.email || !form.phone || !form.password || !form.confirmPassword) {
     error.value = 'Vui lòng điền đầy đủ thông tin'
     return
   }
@@ -51,6 +52,7 @@ const handleSignup = async () => {
     await authStore.register({
       name: form.name,
       email: form.email,
+      phone: form.phone,
       password: form.password
     })
 
@@ -139,6 +141,22 @@ const toggleConfirmPasswordVisibility = () => {
               class="input-field"
               placeholder="Nguyễn Văn A"
               autocomplete="name"
+            />
+          </div>
+
+          <!-- Phone field -->
+          <div>
+            <label for="phone" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Số điện thoại
+            </label>
+            <input
+              id="phone"
+              v-model="form.phone"
+              type="tel"
+              required
+              class="input-field"
+              placeholder="0912345678"
+              autocomplete="tel"
             />
           </div>
 

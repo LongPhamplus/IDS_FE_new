@@ -443,14 +443,20 @@ export const useApi = () => {
   const register = async (userData: {
     email: string
     password: string
-    name?: string
+    name: string
+    phone: string
   }) => {
     try {
+      const payload = {
+        ...userData,
+        role: 'client'
+      }
+
       const response = await $fetch('/fe/auth/register', {
         baseURL: config.public.apiBase,
         method: 'POST',
         credentials: 'include',
-        body: userData
+        body: payload
       })
 
       return response
